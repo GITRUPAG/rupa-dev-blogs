@@ -56,7 +56,7 @@ const mdxOptions = {
       rehypeHighlight,
       rehypeSlug,
       [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-    ] as Parameters<typeof MDXRemote>[0]['options']['mdxOptions']['rehypePlugins'],
+    ],
   },
 }
 
@@ -106,10 +106,19 @@ export default async function BlogPostPage({ params }: Props) {
             {/* MDX content */}
             <div className="prose prose-lg max-w-none mt-10">
               <MDXRemote
-                source={post.content || ''}
-                components={MDXComponents}
-                options={mdxOptions}
-              />
+  source={post.content || ''}
+  components={MDXComponents}
+  options={{
+    mdxOptions: {
+      remarkPlugins: [remarkGfm],
+      rehypePlugins: [
+        rehypeHighlight,
+        rehypeSlug,
+        [rehypeAutolinkHeadings, { behavior: 'wrap' }],
+      ],
+    },
+  } as any}
+/>
             </div>
 
             {/* Post footer */}
