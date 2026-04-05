@@ -54,7 +54,7 @@ export function LearningPathTracker({ path }: { path: Path }) {
         next.add(lessonId)
       }
       try {
-        localStorage.setItem(storageKey, JSON.stringify([...next]))
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(next)))
       } catch {}
       return next
     })
