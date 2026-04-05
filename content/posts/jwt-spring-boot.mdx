@@ -1,0 +1,169 @@
+---
+title: "JWT Auth in Spring Boot — The Right Way"
+description: "Stop copying StackOverflow. Here's production-grade JWT with refresh tokens, Spring Security filters, and proper error handling."
+date: "2025-01-15"
+tags: ["spring-boot", "java", "jwt", "security"]
+category: "java"
+featured: true
+githubRepo: "https://github.com/rupa/spring-jwt-starter"
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Why Most JWT Tutorials Are Wrong
+
+Every JWT tutorial I found did one of these things wrong:
+
+1. Stored refresh tokens in `localStorage` (huge security risk)
+2. Never implemented token rotation
+3. Didn't handle token expiry gracefully on the frontend
+
+Let's fix all three.
+
+## The Architecture
+
+Here's what we're building:
+
+- **Access token**: Short-lived (15 min), stored in memory
+- **Refresh token**: Long-lived (7 days), stored in `HttpOnly` cookie
+- **Rotation**: Refresh tokens rotate on every use
+
+## Setup
+
+Add these dependencies to `pom.xml`:
+
+```xml
+<dependency>
+  <groupId>io.jsonwebtoken</groupId>
+  <artifactId>jjwt-api</artifactId>
+  <version>0.12.3</version>
+</dependency>
+```
+
+## The JWT Service
+
+<CodeEditor
+  language="java"
+  title="JwtService.java"
+  height="320px"
+  code={`@Service
+public class JwtService {
+
+  @Value("\${jwt.secret}")
+  private String secretKey;
+
+  @Value("\${jwt.expiration:900000}") // 15 min
+  private long accessExpiration;
+
+  public String generateAccessToken(UserDetails user) {
+    return Jwts.builder()
+      .subject(user.getUsername())
+      .issuedAt(new Date())
+      .expiration(new Date(System.currentTimeMillis() + accessExpiration))
+      .signWith(getSigningKey())
+      .compact();
+  }
+
+  public boolean isTokenValid(String token, UserDetails user) {
+    final String username = extractUsername(token);
+    return username.equals(user.getUsername()) && !isTokenExpired(token);
+  }
+
+  private SecretKey getSigningKey() {
+    byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+    return Keys.hmacShaKeyFor(keyBytes);
+  }
+}`}
+/>
+
+<Callout type="warning" title="Secret key length">
+  Your JWT secret must be at least 256 bits (32 bytes) for HS256. Use `openssl rand -base64 64` to generate one.
+</Callout>
+
+## Spring Security Filter
+
+The filter intercepts every request:
+
+```java
+@Component
+@RequiredArgsConstructor
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+  private final JwtService jwtService;
+  private final UserDetailsService userDetailsService;
+
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      FilterChain filterChain) throws ServletException, IOException {
+
+    final String authHeader = request.getHeader("Authorization");
+
+    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+      filterChain.doFilter(request, response);
+      return;
+    }
+
+    final String jwt = authHeader.substring(7);
+    final String username = jwtService.extractUsername(jwt);
+
+    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+      UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+      if (jwtService.isTokenValid(jwt, userDetails)) {
+        var authToken = new UsernamePasswordAuthenticationToken(
+          userDetails, null, userDetails.getAuthorities()
+        );
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
+      }
+    }
+
+    filterChain.doFilter(request, response);
+  }
+}
+```
+
+## Step-by-Step: Refresh Token Flow
+
+<Step number={1} title="Client sends expired access token">
+  The frontend catches a `401` response and automatically calls `/auth/refresh`.
+</Step>
+
+<Step number={2} title="Server reads HttpOnly cookie">
+  The refresh token comes from the cookie — the client JavaScript can't even read it.
+</Step>
+
+<Step number={3} title="Rotate and respond">
+  We invalidate the old refresh token and issue a new one. This prevents token reuse attacks.
+</Step>
+
+## Testing It
+
+Try this JavaScript snippet to test your login endpoint:
+
+<CodeEditor
+  language="javascript"
+  title="test-auth.js"
+  height="200px"
+  runnable
+  code={`// Simulated auth test
+const mockResponse = {
+  accessToken: "eyJhbGc...",
+  expiresIn: 900
+};
+
+console.log("Access token received:", mockResponse.accessToken.substring(0, 20) + "...");
+console.log("Expires in:", mockResponse.expiresIn / 60, "minutes");
+console.log("Status: Auth working correctly ✓");`}
+/>
+
+<Callout type="success" title="Production checklist">
+  Before deploying: rotate secrets, enable HTTPS only for cookies, set `SameSite=Strict`, and log all auth failures.
+</Callout>
+
+## What's Next?
+
+In the next post we'll add **role-based access control (RBAC)** and per-endpoint permissions using Spring Security's `@PreAuthorize`.

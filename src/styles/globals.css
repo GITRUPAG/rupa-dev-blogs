@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Algolia autocomplete theme overrides */
+@import '@algolia/autocomplete-theme-classic/dist/theme.css';
+
+@layer base {
+  :root {
+    --font-dm-sans: 'DM Sans', sans-serif;
+    --font-syne: 'Syne', sans-serif;
+    --font-jetbrains: 'JetBrains Mono', monospace;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-bg text-ink;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 111, 255, 0.06), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(255, 107, 157, 0.03), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-2;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-2 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-3;
+  }
+}
+
+@layer components {
+  /* Gradient text utility */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-accent-2;
+  }
+
+  .gradient-text-green {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent-3 to-accent;
+  }
+
+  /* Glass card */
+  .glass-card {
+    @apply bg-surface/80 backdrop-blur-sm border border-border rounded-xl;
+  }
+
+  /* Code block wrapper from rehype-highlight */
+  .prose pre {
+    @apply !bg-bg-2 !border !border-border;
+    position: relative;
+  }
+
+  /* Highlight.js theme overrides for dark */
+  .hljs {
+    @apply bg-transparent text-ink;
+  }
+  .hljs-keyword, .hljs-selector-tag { @apply text-pink-400; }
+  .hljs-title, .hljs-section { @apply text-emerald-400; }
+  .hljs-string { @apply text-yellow-300; }
+  .hljs-comment { @apply text-ink-3; }
+  .hljs-variable, .hljs-template-variable { @apply text-cyan-400; }
+  .hljs-built_in, .hljs-type { @apply text-orange-400; }
+  .hljs-number { @apply text-purple-400; }
+  .hljs-attr, .hljs-attribute { @apply text-blue-300; }
+
+  /* Algolia autocomplete custom styles */
+  .aa-Autocomplete {
+    width: 100%;
+  }
+  .aa-Form {
+    @apply !bg-surface !border-border !rounded-lg;
+  }
+  .aa-Input {
+    @apply !text-ink !bg-transparent;
+    font-family: var(--font-dm-sans) !important;
+  }
+  .aa-Panel {
+    @apply !bg-surface !border-border !rounded-xl !shadow-2xl;
+    z-index: 9999;
+  }
+  .aa-Item {
+    @apply !text-ink;
+  }
+  .aa-Item[aria-selected='true'] {
+    @apply !bg-surface-2;
+  }
+  .algolia-highlight {
+    @apply text-accent font-semibold bg-accent/10 rounded px-0.5;
+  }
+
+  /* Navigation active state */
+  .nav-link-active {
+    @apply text-ink;
+  }
+
+  /* Learning path progress */
+  .lesson-done .lesson-num {
+    @apply bg-accent-3/20 border-accent-3/40 text-accent-3;
+  }
+
+  /* Monaco editor container */
+  .monaco-container {
+    @apply rounded-xl overflow-hidden border border-border;
+    min-height: 300px;
+  }
+
+  /* Giscus iframe override */
+  .giscus iframe {
+    @apply w-full;
+  }
+
+  /* Animated gradient border */
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(var(--bg), var(--bg)) padding-box,
+      linear-gradient(135deg, #7c6fff, #ff6b9d, #00d4aa) border-box;
+    border: 1px solid transparent;
+    border-radius: 12px;
+  }
+
+  /* Code copy button */
+  .code-copy-btn {
+    @apply absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity;
+    @apply bg-surface-2 border border-border rounded-md px-3 py-1.5;
+    @apply text-ink-2 text-xs font-mono hover:text-ink hover:border-border-2;
+  }
+
+  /* Series progress bar */
+  .series-progress {
+    @apply h-1 rounded-full bg-gradient-to-r from-accent to-accent-3;
+    transition: width 0.4s ease;
+  }
+
+  /* TOC active link */
+  .toc-active {
+    @apply text-accent border-l-2 border-accent -ml-px pl-3;
+  }
+}
+
+/* Framer Motion fade-in preset */
+@layer utilities {
+  .animate-in {
+    animation: fadeUp 0.5s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
