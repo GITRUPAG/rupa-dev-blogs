@@ -6,7 +6,7 @@ import { Play, Copy, Check, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  initialCode: string
+  initialCode?: string
   language?: string
   height?: string
   readOnly?: boolean
@@ -15,14 +15,15 @@ interface Props {
 }
 
 export function CodeEditor({
-  initialCode,
+  initialCode = '',
   language = 'javascript',
   height = '300px',
   readOnly = false,
   runnable = false,
   title,
 }: Props) {
-  const [code, setCode] = useState(initialCode.trim())
+  const safeCode = (initialCode ?? '').trim()
+  const [code, setCode] = useState(safeCode)
   const [output, setOutput] = useState<string | null>(null)
   const [outputType, setOutputType] = useState<'success' | 'error'>('success')
   const [copied, setCopied] = useState(false)
@@ -39,7 +40,7 @@ export function CodeEditor({
   }
 
   const handleReset = () => {
-    setCode(initialCode.trim())
+    setCode(safeCode)
     setOutput(null)
   }
 
@@ -53,7 +54,6 @@ export function CodeEditor({
     const logs: string[] = []
     const originalConsole = console.log
 
-    // Capture console.log
     console.log = (...args: unknown[]) => {
       logs.push(args.map((a) => (typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a))).join(' '))
       originalConsole(...args)
