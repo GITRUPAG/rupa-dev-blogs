@@ -15,7 +15,7 @@ const projects = [
     description:
       'A full-stack AI-driven healthcare platform focused on women\'s wellness. Combines period & fertility tracking, mental health support, medication management, doctor consultations, and community into one ecosystem.',
     tech: ['React Native', 'Expo', 'Spring Boot', 'PostgreSQL', 'JWT', 'Cloudinary', 'Context API'],
-    githubUrl: 'https://github.com/GITRUPAG/shecare',
+    //githubUrl: 'https://github.com/GITRUPAG/shecare',
     liveUrl: null,
     blogSeries: '/blog?series=shecare',
     status: 'live',
@@ -42,7 +42,7 @@ const projects = [
     description:
       'A companion web app to SheCare — a role-based dashboard for admins and doctors to manage users, approve health tips, handle appointments, and monitor platform analytics.',
     tech: ['React.js', 'Axios', 'Tailwind CSS', 'Spring Boot', 'JWT', 'PostgreSQL'],
-    githubUrl: 'https://github.com/GITRUPAG/shecare-dashboard',
+    //githubUrl: 'https://github.com/GITRUPAG/shecare-dashboard',
     liveUrl: null,
     blogSeries: '/blog?series=shecare',
     status: 'live',
@@ -68,7 +68,7 @@ const projects = [
     description:
       'A system that ensures files haven\'t been tampered with by storing their SHA-256 hash on the Ethereum blockchain. Any modification to the file changes the hash — detected instantly on re-upload.',
     tech: ['Ethereum', 'Solidity', 'Spring Boot', 'React.js', 'Ganache', 'MetaMask', 'Truffle'],
-    githubUrl: 'https://github.com/GITRUPAG/file-integrity-blockchain',
+    githubUrl: 'https://github.com/GITRUPAG/certificate-verification-blockchain',
     liveUrl: null,
     blogSeries: null,
     status: 'wip',
@@ -94,7 +94,7 @@ const projects = [
     description:
       'A tamper-proof digital voting system where every vote is an immutable transaction on the Ethereum blockchain. Ensures one-person-one-vote, full transparency, and fraud prevention without a central authority.',
     tech: ['Ethereum', 'Solidity', 'React.js', 'Web3.js', 'Ethers.js', 'Spring Boot', 'MetaMask'],
-    githubUrl: 'https://github.com/GITRUPAG/evoting-blockchain',
+    githubUrl: 'https://github.com/GITRUPAG/evoting',
     liveUrl: null,
     blogSeries: null,
     status: 'wip',
@@ -120,8 +120,8 @@ const projects = [
     description:
       'This very site — a high-performance developer blog built with Next.js and MDX. Features Algolia-powered search, Giscus comments, structured learning paths, ISR, and full SEO optimization.',
     tech: ['Next.js 14', 'MDX', 'TypeScript', 'Tailwind CSS', 'Algolia', 'Giscus', 'Vercel'],
-    githubUrl: 'https://github.com/GITRUPAG/blogs',
-    liveUrl: 'https://rupa.dev',
+    //githubUrl: 'https://github.com/GITRUPAG/blogs',
+    liveUrl: 'https://rupa-dev-blogs-g9sz-nine.vercel.app/',
     blogSeries: null,
     status: 'live',
     type: 'Web App',
