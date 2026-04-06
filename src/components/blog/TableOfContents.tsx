@@ -18,13 +18,13 @@ function extractHeadings(content: string | undefined): Heading[] {
 
   while ((match = regex.exec(content)) !== null) {
     const level = match[0].match(/^#+/)?.[0].length || 1
-    const text = match[1].replace(/[*_`]/g, '')
-    const id = text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .trim()
-
+    const rawText = match[1] || ''
+const text = rawText.replace(/[*_`]/g, '')
+    const id = (text || '')
+  .toLowerCase()
+  .replace(/[^a-z0-9\s-]/g, '')
+  .replace(/\s+/g, '-')
+  .trim()
     headings.push({ id, text, level })
   }
 
