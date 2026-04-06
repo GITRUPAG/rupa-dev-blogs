@@ -5,12 +5,12 @@ import rehypeHighlight from 'rehype-highlight'
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 import remarkGfm from 'remark-gfm'
+
 import { getAllPosts, getPostBySlug, getRelatedPosts } from '@/lib/posts'
 import { PostHeader } from '@/components/blog/PostHeader'
 import { TableOfContents } from '@/components/blog/TableOfContents'
 import { GiscusComments } from '@/components/blog/GiscusComments'
 import { RelatedPosts } from '@/components/blog/RelatedPosts'
-import { CopyCodeButton } from '@/components/blog/CopyCodeButton'
 import { MDXComponents } from '@/components/blog/MDXComponents'
 import { SeriesNav } from '@/components/blog/SeriesNav'
 import { NewsletterForm } from '@/components/ui/NewsletterForm'
@@ -19,12 +19,13 @@ interface Props {
   params: { slug: string }
 }
 
-// SSG — generate all blog post pages at build time
+// ✅ Generate static pages
 export async function generateStaticParams() {
   const posts = getAllPosts()
   return posts.map((post) => ({ slug: post.slug }))
 }
 
+// ✅ SEO metadata
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPostBySlug(params.slug)
   if (!post) return {}
@@ -49,24 +50,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-const mdxOptions = {
-  mdxOptions: {
-    remarkPlugins: [remarkGfm],
-    rehypePlugins: [
-      rehypeHighlight,
-      rehypeSlug,
-      [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-    ],
-  },
-}
-
 export default async function BlogPostPage({ params }: Props) {
   const post = getPostBySlug(params.slug)
   if (!post) notFound()
 
   const relatedPosts = getRelatedPosts(post)
 
-  // Structured data for SEO
+  // ✅ SAFE MDX CONTENT (THIS FIXES YOUR ERROR)
+  const safeContent =
+    typeof post.content === 'string'
+      ? post.content.replace(/\n{3,}/g, '\n\n').trim()
+      : ''
+
+  // ✅ Structured data
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -87,6 +83,7 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <>
+      {/* SEO JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -94,37 +91,37 @@ export default async function BlogPostPage({ params }: Props) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-12">
-          {/* Main content */}
+
+          {/* MAIN CONTENT */}
           <article>
             <PostHeader post={post} />
 
-            {/* Series navigation */}
             {post.series && (
               <SeriesNav currentPost={post} seriesName={post.series} />
             )}
 
-            {/* MDX content */}
+            {/* ✅ MDX RENDER */}
             <div className="prose prose-lg max-w-none mt-10">
               <MDXRemote
-  source={post.content || ''}
-  components={MDXComponents}
-  options={{
-    mdxOptions: {
-      remarkPlugins: [remarkGfm],
-      rehypePlugins: [
-        rehypeHighlight,
-        rehypeSlug,
-        [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-      ],
-    },
-  } as any}
-/>
+                source={safeContent}
+                components={MDXComponents}
+                options={{
+                  mdxOptions: {
+                    remarkPlugins: [remarkGfm],
+                    rehypePlugins: [
+                      rehypeHighlight,
+                      rehypeSlug,
+                      [rehypeAutolinkHeadings, { behavior: 'wrap' }],
+                    ],
+                  },
+                } as any}
+              />
             </div>
 
-            {/* Post footer */}
+            {/* FOOTER */}
             <div className="mt-12 pt-8 border-t border-border">
               <div className="flex flex-wrap gap-2 mb-8">
-                {post.tags.map((tag) => (
+                {(post.tags || []).map((tag) => (
                   <span
                     key={tag}
                     className="px-3 py-1 bg-surface border border-border rounded-full text-xs font-mono text-ink-2"
@@ -146,7 +143,7 @@ export default async function BlogPostPage({ params }: Props) {
               )}
             </div>
 
-            {/* Newsletter CTA in post */}
+            {/* NEWSLETTER */}
             <div className="bg-surface border border-border rounded-2xl p-8 mb-12">
               <p className="text-xs font-mono text-accent uppercase tracking-wider mb-2">
                 ✦ Enjoyed this post?
@@ -160,20 +157,20 @@ export default async function BlogPostPage({ params }: Props) {
               <NewsletterForm compact />
             </div>
 
-            {/* Giscus Comments */}
+            {/* COMMENTS */}
             <GiscusComments />
           </article>
 
-          {/* Sidebar */}
+          {/* SIDEBAR */}
           <aside className="hidden lg:block">
             <div className="sticky top-24 space-y-6">
-              <TableOfContents content={post.content || ''} />
-
+              <TableOfContents content={safeContent} />
               {relatedPosts.length > 0 && (
                 <RelatedPosts posts={relatedPosts} />
               )}
             </div>
           </aside>
+
         </div>
       </div>
     </>
