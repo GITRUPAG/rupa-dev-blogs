@@ -20,12 +20,14 @@ export function BlogListClient({ posts, tags, categories }: Props) {
   const filtered = useMemo(() => {
     return posts.filter((post) => {
       const matchesSearch =
-        !search ||
-        post.title.toLowerCase().includes(search.toLowerCase()) ||
-        post.description.toLowerCase().includes(search.toLowerCase()) ||
-        post.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+  !search ||
+  (post.title || '').toLowerCase().includes(search.toLowerCase()) ||
+  (post.description || '').toLowerCase().includes(search.toLowerCase()) ||
+  (post.tags || []).some((t) =>
+    (t || '').toLowerCase().includes(search.toLowerCase())
+  )
       const matchesCategory = !activeCategory || post.category === activeCategory
-      const matchesTag = !activeTag || post.tags.includes(activeTag)
+      const matchesTag = !activeTag || (post.tags || []).includes(activeTag)
       return matchesSearch && matchesCategory && matchesTag
     })
   }, [posts, search, activeCategory, activeTag])
