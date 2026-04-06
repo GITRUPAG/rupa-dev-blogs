@@ -6,12 +6,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(dateString: string): string {
-  return format(parseISO(dateString), 'MMM d, yyyy')
+export function formatDate(dateString?: string): string {
+  if (!dateString) return ''
+
+  try {
+    const date = parseISO(dateString)
+    if (isNaN(date.getTime())) return ''
+    return format(date, 'MMM d, yyyy')
+  } catch {
+    return ''
+  }
 }
 
-export function formatDateShort(dateString: string): string {
-  return format(parseISO(dateString), 'MMM yyyy')
+export function formatDateShort(dateString?: string): string {
+  if (!dateString) return ''
+
+  try {
+    const date = parseISO(dateString)
+    if (isNaN(date.getTime())) return ''
+    return format(date, 'MMM yyyy')
+  } catch {
+    return ''
+  }
 }
 
 export function slugify(text: string): string {
