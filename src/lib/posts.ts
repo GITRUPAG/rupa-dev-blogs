@@ -28,11 +28,11 @@ export function getPostBySlug(slug: string): Post | null {
 
     return {
       slug,
-      title: data.title || '',
-      description: data.description || '',
+      title: typeof data.title === 'string' ? data.title : '',
+description: typeof data.description === 'string' ? data.description : '',
       date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
-      tags: data.tags || [],
-      category: data.category || 'general',
+      tags: Array.isArray(data.tags) ? data.tags.filter(Boolean) : [],
+      category: typeof data.category === 'string' ? data.category : 'general',
       readingTime: stats.text,
       featured: data.featured || false,
       series: data.series,
@@ -41,8 +41,8 @@ export function getPostBySlug(slug: string): Post | null {
       githubRepo: data.githubRepo,
       author: data.author || {
         name: 'Rupa',
-        github: 'https://github.com/rupa',
-        linkedin: 'https://linkedin.com/in/rupa',
+        github: 'https://github.com/GITRUPAG',
+        linkedin: 'https://www.linkedin.com/in/g-rupa-799a43240/',
       },
       content,
     }
