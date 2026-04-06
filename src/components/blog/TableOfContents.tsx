@@ -9,7 +9,9 @@ interface Heading {
   level: number
 }
 
-function extractHeadings(content: string): Heading[] {
+function extractHeadings(content: string | undefined): Heading[] {
+  if (!content) return []
+
   const regex = /^#{1,3}\s+(.+)$/gm
   const headings: Heading[] = []
   let match
@@ -29,8 +31,8 @@ function extractHeadings(content: string): Heading[] {
   return headings
 }
 
-export function TableOfContents({ content }: { content: string }) {
-  const headings = extractHeadings(content)
+export function TableOfContents({ content }: { content: string | undefined }) {
+  const headings = extractHeadings(content ?? '')
   const [activeId, setActiveId] = useState<string>('')
 
   useEffect(() => {
