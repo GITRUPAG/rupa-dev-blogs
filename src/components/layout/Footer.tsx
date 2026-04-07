@@ -9,16 +9,16 @@ const footerLinks = {
     { label: 'Projects', href: '/blog?category=project' },
     { label: 'Series', href: '/blog?category=series' },
   ],
-  Learn: [
-    { label: 'React Roadmap', href: '/learn/react' },
-    { label: 'Spring Boot', href: '/learn/spring-boot' },
-    { label: 'Full Stack Path', href: '/learn/fullstack' },
-    { label: 'DevOps', href: '/learn/devops' },
-  ],
+  // Learn: [
+  //   { label: 'React Roadmap', href: '/learn/react' },
+  //   { label: 'Spring Boot', href: '/learn/spring-boot' },
+  //   { label: 'Full Stack Path', href: '/learn/fullstack' },
+  //   { label: 'DevOps', href: '/learn/devops' },
+  // ],
   More: [
     { label: 'About', href: '/about' },
     { label: 'Projects', href: '/projects' },
-    { label: 'Newsletter', href: '/newsletter' },
+    // { label: 'Newsletter', href: '/newsletter' },
     { label: 'RSS Feed', href: '/feed.xml' },
   ],
 }

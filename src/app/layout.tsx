@@ -84,6 +84,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head suppressHydrationWarning>
         <meta name="google-site-verification" content="4etL4NmbSz2QLDce_ftGVawOBdIKAjkww8NGcbP2bTo" />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7718551137613171"
+     crossOrigin="anonymous"></script>
         {GA_TRACKING_ID && (
           <>
             <Script
