@@ -29,7 +29,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://rupa.dev'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://devdairy.online'),
   title: {
     default: 'Rupa.dev — Full-Stack Developer Blog',
     template: '%s | Rupa.dev',
@@ -37,12 +37,12 @@ export const metadata: Metadata = {
   description:
     'Real projects. Real code. Full-stack tutorials on React, Spring Boot, PostgreSQL, and more — written by Rupa.',
   keywords: ['React', 'Spring Boot', 'Full Stack', 'JavaScript', 'Java', 'Web Development', 'Blog'],
-  authors: [{ name: 'Rupa', url: 'https://rupa.dev' }],
+  authors: [{ name: 'Rupa', url: 'https://devdairy.online' }],
   creator: 'Rupa',
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://rupa.dev',
+    url: 'https://devdairy.online',
     siteName: 'Rupa.dev',
     title: 'Rupa.dev — Full-Stack Developer Blog',
     description: 'Real projects. Real code. Real stories.',
