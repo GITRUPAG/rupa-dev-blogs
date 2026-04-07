@@ -1,0 +1,222 @@
+---
+title: "Java Basics #4 — Methods & Arrays"
+description: "How to write clean reusable methods, understand pass-by-value, and work with single and multi-dimensional arrays."
+date: "2025-01-26"
+tags: ["java", "basics", "methods", "arrays"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 4
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Defining Methods
+
+```java
+public class Calculator {
+
+    // returnType methodName(paramType paramName, ...)
+    public static int add(int a, int b) {
+        return a + b;
+    }
+
+    // void means no return value
+    public static void printResult(int result) {
+        System.out.println("Result: " + result);
+    }
+
+    public static void main(String[] args) {
+        int sum = add(5, 3);   // 8
+        printResult(sum);       // Result: 8
+    }
+}
+```
+
+**Access modifiers:**
+
+| Modifier | Visible From |
+|----------|-------------|
+| `public` | Everywhere |
+| `private` | Same class only |
+| `protected` | Same class + subclasses + same package |
+| (none) | Same package only |
+
+## Pass-by-Value — The Most Misunderstood Java Concept
+
+Java is **always** pass-by-value. Always. There is no pass-by-reference.
+
+```java
+// Primitives: a copy of the value is passed
+public static void tryToDouble(int x) {
+    x = x * 2;  // only changes the local copy
+}
+
+int num = 5;
+tryToDouble(num);
+System.out.println(num);  // still 5!
+```
+
+```java
+// Objects: a copy of the REFERENCE is passed
+public static void addItem(List<String> list) {
+    list.add("new item");  // modifies the object the reference points to
+}
+
+public static void reassign(List<String> list) {
+    list = new ArrayList<>();  // only reassigns the local copy of the reference
+}
+
+List<String> names = new ArrayList<>();
+addItem(names);
+System.out.println(names);  // ["new item"] — modified!
+
+reassign(names);
+System.out.println(names);  // still ["new item"] — reassign had no effect
+```
+
+<Callout type="warning" title="Objects feel like pass-by-reference but aren't">
+  When you pass an object, you pass a copy of the reference. You can mutate the object through that reference, but you cannot make the original variable point to a new object.
+</Callout>
+
+## Method Overloading
+
+Same method name, different parameter lists:
+
+```java
+public static int add(int a, int b) {
+    return a + b;
+}
+
+public static double add(double a, double b) {
+    return a + b;
+}
+
+public static int add(int a, int b, int c) {
+    return a + b + c;
+}
+
+// Java picks the right one at compile time
+add(1, 2);         // → int version
+add(1.5, 2.5);     // → double version
+add(1, 2, 3);      // → three-arg version
+```
+
+## Varargs — Variable Number of Arguments
+
+```java
+public static int sum(int... numbers) {
+    int total = 0;
+    for (int n : numbers) total += n;
+    return total;
+}
+
+sum(1, 2);           // 3
+sum(1, 2, 3, 4, 5);  // 15
+sum();                // 0
+```
+
+<Callout type="info" title="Varargs is just an array">
+  `int... numbers` is syntactic sugar. Inside the method, `numbers` is a regular `int[]`.
+</Callout>
+
+## Arrays
+
+Arrays in Java are fixed-size and zero-indexed.
+
+```java
+// Declaration and initialization
+int[] scores = new int[5];         // [0, 0, 0, 0, 0] — default values
+int[] primes = {2, 3, 5, 7, 11};  // array literal
+
+// Access
+System.out.println(primes[0]);     // 2
+System.out.println(primes[4]);     // 11
+primes[2] = 99;                    // modify element
+
+// Length (property, not method — no parentheses)
+System.out.println(primes.length); // 5
+
+// Out of bounds throws ArrayIndexOutOfBoundsException
+System.out.println(primes[10]);    // 💥 runtime error
+```
+
+## Common Array Operations
+
+```java
+import java.util.Arrays;
+
+int[] arr = {5, 3, 1, 4, 2};
+
+// Sort (modifies in place)
+Arrays.sort(arr);
+System.out.println(Arrays.toString(arr));  // [1, 2, 3, 4, 5]
+
+// Binary search (array must be sorted first)
+int idx = Arrays.binarySearch(arr, 3);    // 2
+
+// Copy
+int[] copy = Arrays.copyOf(arr, arr.length);
+int[] partial = Arrays.copyOfRange(arr, 1, 4); // [2, 3, 4]
+
+// Fill
+int[] zeros = new int[5];
+Arrays.fill(zeros, 7);  // [7, 7, 7, 7, 7]
+
+// Compare
+int[] a = {1, 2, 3};
+int[] b = {1, 2, 3};
+System.out.println(a == b);             // false — different objects
+System.out.println(Arrays.equals(a, b)); // true ✅
+```
+
+## Multi-Dimensional Arrays
+
+```java
+// 2D array — a grid
+int[][] matrix = {
+    {1, 2, 3},
+    {4, 5, 6},
+    {7, 8, 9}
+};
+
+System.out.println(matrix[1][2]);  // 6 (row 1, col 2)
+
+// Iterate
+for (int[] row : matrix) {
+    for (int val : row) {
+        System.out.print(val + " ");
+    }
+    System.out.println();
+}
+
+// Jagged arrays — rows can have different lengths
+int[][] jagged = new int[3][];
+jagged[0] = new int[]{1};
+jagged[1] = new int[]{2, 3};
+jagged[2] = new int[]{4, 5, 6};
+```
+
+## Returning Arrays from Methods
+
+```java
+public static int[] generateRange(int start, int end) {
+    int[] result = new int[end - start];
+    for (int i = 0; i < result.length; i++) {
+        result[i] = start + i;
+    }
+    return result;
+}
+
+int[] range = generateRange(1, 6);
+System.out.println(Arrays.toString(range));  // [1, 2, 3, 4, 5]
+```
+
+<Callout type="success" title="End of Java Basics">
+  You now know the fundamentals: variables, types, control flow, methods, and arrays. In the next section we move to **OOP** — the paradigm Java is built around.
+</Callout>
+
+## What's Next?
+
+**OOP #1** covers classes, objects, constructors, and the `this` keyword — how Java models real-world things as code.

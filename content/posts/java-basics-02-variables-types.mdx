@@ -1,0 +1,184 @@
+---
+title: "Java Basics #2 — Variables, Data Types & Operators"
+description: "Primitives vs objects, type casting, and the operators you'll use every day. Plus why int and Integer are different."
+date: "2025-01-22"
+tags: ["java", "basics", "variables", "types"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 2
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Primitive Types — Java's 8 Building Blocks
+
+Java has exactly 8 primitive types. These are not objects — they're raw values stored directly on the stack.
+
+```java
+byte   b = 127;           // 8-bit integer, -128 to 127
+short  s = 32000;         // 16-bit integer
+int    i = 2_000_000;     // 32-bit integer (most common)
+long   l = 9_000_000_000L; // 64-bit integer, note the L suffix
+float  f = 3.14f;         // 32-bit decimal, note the f suffix
+double d = 3.14159265;    // 64-bit decimal (default for decimals)
+char   c = 'A';           // 16-bit Unicode character
+boolean flag = true;      // true or false only
+```
+
+<Callout type="info" title="Use int and double by default">
+  Unless you have a specific reason, use `int` for whole numbers and `double` for decimals. The other types are for memory optimization or legacy code.
+</Callout>
+
+## Wrapper Classes — When Primitives Aren't Enough
+
+Every primitive has a corresponding **wrapper class** (an object version):
+
+| Primitive | Wrapper |
+|-----------|---------|
+| `int`     | `Integer` |
+| `double`  | `Double` |
+| `boolean` | `Boolean` |
+| `char`    | `Character` |
+
+You need wrapper classes when working with Collections (which only hold objects), generics, and nullable values:
+
+```java
+int x = 5;          // primitive — can't be null
+Integer y = 5;      // object — CAN be null
+Integer z = null;   // valid
+
+// Autoboxing — Java converts automatically
+Integer auto = 42;  // int → Integer (autoboxing)
+int unboxed = auto; // Integer → int (unboxing)
+```
+
+<Callout type="warning" title="Autoboxing NullPointerException trap">
+  If you unbox a `null` Integer to an `int`, you get a NullPointerException. This is one of the most common runtime bugs in Java.
+  ```java
+  Integer val = null;
+  int x = val; // 💥 NullPointerException
+  ```
+</Callout>
+
+## Strings
+
+`String` is not a primitive — it's a class. But it's so fundamental it gets special treatment:
+
+```java
+String name = "Rupa";             // string literal (from pool)
+String name2 = new String("Rupa"); // new object (avoid this)
+
+// String is immutable — every "change" creates a new object
+String upper = name.toUpperCase();  // "RUPA", name unchanged
+
+// Common methods
+int len = name.length();            // 4
+String sub = name.substring(0, 2);  // "Ru"
+boolean has = name.contains("up");  // true
+String trimmed = "  hello  ".strip(); // "hello"
+
+// Concatenation
+String full = "Hello, " + name + "!"; // "Hello, Rupa!"
+
+// String.format (cleaner for complex strings)
+String msg = String.format("Hi %s, you are %d years old", name, 25);
+
+// Text blocks (Java 15+)
+String json = """
+    {
+        "name": "Rupa",
+        "role": "dev"
+    }
+    """;
+```
+
+## Type Casting
+
+**Widening** (safe, automatic):
+```java
+int i = 100;
+long l = i;    // int → long, no data loss, automatic
+double d = i;  // int → double, automatic
+```
+
+**Narrowing** (explicit, may lose data):
+```java
+double d = 9.99;
+int i = (int) d;  // 9 — decimal part is cut off, not rounded!
+
+long big = 1_000_000_000_000L;
+int small = (int) big; // data loss — value wraps around
+```
+
+<Callout type="warning" title="Casting cuts, not rounds">
+  `(int) 9.99` gives you `9`, not `10`. If you need rounding, use `Math.round()` first.
+</Callout>
+
+## Operators
+
+**Arithmetic:**
+```java
+int a = 10, b = 3;
+System.out.println(a + b);  // 13
+System.out.println(a - b);  // 7
+System.out.println(a * b);  // 30
+System.out.println(a / b);  // 3 (integer division!)
+System.out.println(a % b);  // 1 (remainder)
+
+// Integer division gotcha
+double result = 10 / 3;      // 3.0 (still integer division!)
+double correct = 10.0 / 3;   // 3.333...
+double correct2 = (double) 10 / 3; // 3.333...
+```
+
+**Comparison & Logical:**
+```java
+boolean eq = (5 == 5);   // true
+boolean ne = (5 != 3);   // true
+boolean gt = (5 > 3);    // true
+
+boolean and = true && false;  // false (short-circuits)
+boolean or  = true || false;  // true (short-circuits)
+boolean not = !true;          // false
+```
+
+**String equality — the classic trap:**
+```java
+String a = "hello";
+String b = "hello";
+String c = new String("hello");
+
+System.out.println(a == b);        // true (same pool object)
+System.out.println(a == c);        // false (different object)
+System.out.println(a.equals(c));   // true ✅ always use equals()
+```
+
+<Callout type="error" title="Never use == for String comparison">
+  `==` checks if two variables point to the same object in memory. Always use `.equals()` to compare String content.
+</Callout>
+
+## var — Local Type Inference (Java 10+)
+
+```java
+var name = "Rupa";         // inferred as String
+var count = 42;            // inferred as int
+var list = new ArrayList<String>(); // inferred as ArrayList<String>
+
+// var only works for local variables — not fields or parameters
+```
+
+## Constants
+
+```java
+final double PI = 3.14159;
+PI = 3.0; // ❌ compile error — final means it can't be reassigned
+
+// Convention: ALL_CAPS for constants
+final int MAX_SIZE = 100;
+```
+
+## What's Next?
+
+In **Java Basics #3** we cover control flow — `if/else`, `switch` expressions, loops, and the `for-each` pattern you'll use constantly with Collections.

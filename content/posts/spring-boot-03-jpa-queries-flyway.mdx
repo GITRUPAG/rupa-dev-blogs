@@ -1,0 +1,264 @@
+---
+title: "Spring Boot #3 — Spring Data JPA: Queries, Pagination & Flyway"
+description: "Custom JPQL queries, derived query methods, pagination and sorting, and managing your schema safely with Flyway migrations."
+date: "2025-02-09"
+tags: ["spring-boot", "java", "jpa", "database", "flyway"]
+category: "spring-boot"
+series: "java-basics-to-advanced"
+seriesOrder: 11
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Entity Relationships
+
+```java
+@Entity
+@Table(name = "categories")
+@Data @NoArgsConstructor @AllArgsConstructor
+public class Category {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+}
+
+@Entity
+@Table(name = "products")
+@Data @NoArgsConstructor @AllArgsConstructor
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    private double price;
+    private int stock;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @Column(name = "created_at", updatable = false)
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+}
+```
+
+<Callout type="warning" title="Use FetchType.LAZY for @ManyToOne">
+  EAGER loading fetches the related entity every time you load the parent — even when you don't need it. LAZY fetches only when you access the field. Always default to LAZY.
+</Callout>
+
+## Derived Query Methods
+
+Spring Data generates SQL from method names:
+
+```java
+public interface ProductRepository extends JpaRepository<Product, Long> {
+
+    // WHERE name = ?
+    Optional<Product> findByName(String name);
+
+    // WHERE price < ?
+    List<Product> findByPriceLessThan(double maxPrice);
+
+    // WHERE price BETWEEN ? AND ?
+    List<Product> findByPriceBetween(double min, double max);
+
+    // WHERE name LIKE %?%
+    List<Product> findByNameContainingIgnoreCase(String keyword);
+
+    // WHERE stock > 0
+    List<Product> findByStockGreaterThan(int minStock);
+
+    // WHERE category_id = ?
+    List<Product> findByCategoryId(Long categoryId);
+
+    // WHERE category_id = ? AND price < ?
+    List<Product> findByCategoryIdAndPriceLessThan(Long categoryId, double price);
+
+    // ORDER BY price ASC
+    List<Product> findAllByOrderByPriceAsc();
+
+    // EXISTS
+    boolean existsByName(String name);
+
+    // COUNT
+    long countByCategoryId(Long categoryId);
+}
+```
+
+## Custom JPQL Queries
+
+For complex queries, use `@Query` with JPQL (Java Persistence Query Language):
+
+```java
+public interface ProductRepository extends JpaRepository<Product, Long> {
+
+    // JPQL uses entity/field names, not table/column names
+    @Query("SELECT p FROM Product p WHERE p.price < :maxPrice AND p.stock > 0")
+    List<Product> findAffordableInStock(@Param("maxPrice") double maxPrice);
+
+    // Projections — select only specific fields
+    @Query("SELECT p.name AS name, p.price AS price FROM Product p WHERE p.category.id = :catId")
+    List<ProductSummary> findSummaryByCategoryId(@Param("catId") Long categoryId);
+
+    // Update query — requires @Transactional
+    @Modifying
+    @Transactional
+    @Query("UPDATE Product p SET p.stock = p.stock + :delta WHERE p.id = :id")
+    int adjustStock(@Param("id") Long id, @Param("delta") int delta);
+}
+
+// Projection interface — Spring creates the implementation
+public interface ProductSummary {
+    String getName();
+    double getPrice();
+}
+```
+
+## Native SQL Queries
+
+When you need database-specific features:
+
+```java
+@Query(value = "SELECT * FROM products WHERE MATCH(name) AGAINST(:term IN BOOLEAN MODE)",
+       nativeQuery = true)
+List<Product> fullTextSearch(@Param("term") String searchTerm);
+```
+
+<Callout type="info" title="JPQL vs Native">
+  Prefer JPQL — it's database-independent. Use native queries only when you need specific SQL features (full-text search, window functions, CTEs).
+</Callout>
+
+## Pagination and Sorting
+
+```java
+// Repository — add Pageable parameter to any method
+Page<Product> findByCategoryId(Long categoryId, Pageable pageable);
+Page<Product> findByNameContainingIgnoreCase(String keyword, Pageable pageable);
+```
+
+```java
+// Service
+public Page<Product> getProducts(int page, int size, String sortBy, String direction) {
+    Sort sort = direction.equalsIgnoreCase("desc")
+        ? Sort.by(sortBy).descending()
+        : Sort.by(sortBy).ascending();
+
+    Pageable pageable = PageRequest.of(page, size, sort);
+    return productRepository.findAll(pageable);
+}
+```
+
+```java
+// Controller
+@GetMapping
+public Page<Product> getAll(
+    @RequestParam(defaultValue = "0")  int page,
+    @RequestParam(defaultValue = "10") int size,
+    @RequestParam(defaultValue = "id") String sortBy,
+    @RequestParam(defaultValue = "asc") String dir
+) {
+    return productService.getProducts(page, size, sortBy, dir);
+}
+```
+
+`Page<T>` response includes `content`, `totalElements`, `totalPages`, `number`, `size`.
+
+## Flyway — Database Migrations
+
+Flyway tracks SQL migration scripts and runs them in order. Production schemas should never be managed by `spring.jpa.hibernate.ddl-auto`.
+
+**Add dependency:**
+```xml
+<dependency>
+    <groupId>org.flywaydb</groupId>
+    <artifactId>flyway-core</artifactId>
+</dependency>
+```
+
+**Create migration scripts in `src/main/resources/db/migration/`:**
+
+```sql
+-- V1__create_categories.sql
+CREATE TABLE categories (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- V2__create_products.sql
+CREATE TABLE products (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+    stock INT NOT NULL DEFAULT 0,
+    category_id BIGINT REFERENCES categories(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- V3__seed_categories.sql
+INSERT INTO categories (name) VALUES ('Electronics'), ('Books'), ('Clothing');
+```
+
+**application.properties:**
+```properties
+spring.jpa.hibernate.ddl-auto=validate
+spring.flyway.enabled=true
+spring.flyway.locations=classpath:db/migration
+```
+
+Flyway creates a `flyway_schema_history` table to track which migrations have run.
+
+<FileTree>
+src/main/resources/
+├── db/migration/
+│   ├── V1__create_categories.sql
+│   ├── V2__create_products.sql
+│   └── V3__seed_categories.sql
+└── application.properties
+</FileTree>
+
+<Callout type="warning" title="Never modify an applied migration">
+  Once a migration file has been applied to any environment (especially production), treat it as immutable. Modifying it will cause Flyway to throw a checksum mismatch error. Add a new migration instead.
+</Callout>
+
+## @Transactional
+
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
+
+    @Transactional  // entire method runs in one transaction
+    public Order placeOrder(Long productId, int quantity) {
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new ResourceNotFoundException("Product", productId));
+
+        if (product.getStock() < quantity) {
+            throw new BadRequestException("Insufficient stock");
+        }
+
+        product.setStock(product.getStock() - quantity);
+        productRepository.save(product);  // saves within the same transaction
+
+        return orderRepository.save(new Order(product, quantity));
+        // if save() throws, the stock update is also rolled back ✅
+    }
+}
+```
+
+<Callout type="info" title="@Transactional on the Service, not Repository">
+  JpaRepository methods are already transactional individually. Put `@Transactional` on your service methods when you need multiple operations to commit or roll back together.
+</Callout>
+
+## What's Next?
+
+**Spring Boot #4** covers Spring Security basics — authentication, authorization, and securing your endpoints without JWT (we save the full JWT deep-dive for the dedicated security post).

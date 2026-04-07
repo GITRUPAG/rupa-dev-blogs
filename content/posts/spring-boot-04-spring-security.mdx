@@ -1,0 +1,251 @@
+---
+title: "Spring Boot #4 — Spring Security: Authentication & Authorization"
+description: "Secure your Spring Boot API with Spring Security. UserDetails, password encoding, role-based access, and method-level security."
+date: "2025-02-11"
+tags: ["spring-boot", "java", "security", "authentication"]
+category: "spring-boot"
+series: "java-basics-to-advanced"
+seriesOrder: 12
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Adding Spring Security
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+```
+
+The moment you add this, every endpoint requires authentication. Spring generates a random password on startup and prints it to the console. That's the default — let's replace it.
+
+## The User Entity
+
+```java
+@Entity
+@Table(name = "app_users")
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class AppUser implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
+    private String username;
+
+    @Column(nullable = false)
+    private String password;  // stored as BCrypt hash
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    // UserDetails methods — Spring Security uses these
+    @Override public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+    }
+    @Override public boolean isAccountNonExpired()     { return true; }
+    @Override public boolean isAccountNonLocked()      { return true; }
+    @Override public boolean isCredentialsNonExpired() { return true; }
+    @Override public boolean isEnabled()               { return true; }
+}
+
+public enum Role { USER, ADMIN }
+```
+
+## UserDetailsService
+
+```java
+@Service
+@RequiredArgsConstructor
+public class AppUserDetailsService implements UserDetailsService {
+
+    private final AppUserRepository userRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        return userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    }
+}
+```
+
+## Password Encoding
+
+**Never store plain-text passwords.** Always use BCrypt:
+
+```java
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();  // cost factor defaults to 10
+}
+
+// When registering a user:
+String hashedPassword = passwordEncoder.encode(rawPassword);
+user.setPassword(hashedPassword);
+userRepository.save(user);
+
+// Spring Security calls this automatically during authentication:
+passwordEncoder.matches(rawInput, storedHash);  // true/false
+```
+
+## SecurityConfig — The Core Bean
+
+```java
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final AppUserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -> csrf.disable())  // disable for stateless REST APIs
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                // Public endpoints
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                // Role-based access
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // Everything else requires authentication
+                .anyRequest().authenticated()
+            )
+            .authenticationProvider(authenticationProvider())
+            .build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
+        return config.getAuthenticationManager();
+    }
+}
+```
+
+<Callout type="info" title="CSRF and stateless APIs">
+  CSRF (Cross-Site Request Forgery) protection is important for cookie-based sessions. For JWT-based stateless APIs, disable it — the short-lived token already prevents CSRF.
+</Callout>
+
+## Auth Controller — Register & Login
+
+```java
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MessageResponse register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return new MessageResponse("User registered successfully");
+    }
+
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
+    }
+}
+```
+
+```java
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final AppUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+
+    public void register(RegisterRequest request) {
+        if (userRepository.existsByUsername(request.username())) {
+            throw new DuplicateResourceException("Username already taken");
+        }
+        AppUser user = AppUser.builder()
+            .username(request.username())
+            .password(passwordEncoder.encode(request.password()))
+            .role(Role.USER)
+            .build();
+        userRepository.save(user);
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        // This calls loadUserByUsername + passwordEncoder.matches internally
+        authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(request.username(), request.password())
+        );
+        // If we reach here, credentials are valid
+        // In the next post we'll return a JWT here
+        return new AuthResponse("Login successful");
+    }
+}
+```
+
+## Method-Level Security
+
+```java
+@Configuration
+@EnableMethodSecurity  // enables @PreAuthorize etc.
+public class MethodSecurityConfig {}
+```
+
+```java
+@Service
+public class ProductService {
+
+    @PreAuthorize("hasRole('ADMIN')")
+    public Product createProduct(CreateProductRequest request) { ... }
+
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public Product getProductById(Long id) { ... }
+
+    // Access the currently authenticated user
+    @PreAuthorize("hasRole('ADMIN') or #username == authentication.name")
+    public List<Order> getOrdersForUser(String username) { ... }
+}
+```
+
+## Getting the Current User
+
+```java
+// In a service or controller
+public AppUser getCurrentUser() {
+    String username = SecurityContextHolder.getContext()
+        .getAuthentication()
+        .getName();
+    return userRepository.findByUsername(username)
+        .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+}
+
+// Or inject it directly in a controller method
+@GetMapping("/me")
+public UserResponse getProfile(@AuthenticationPrincipal AppUser user) {
+    return UserResponse.from(user);
+}
+```
+
+<Callout type="success" title="What we've set up">
+  We now have registration, BCrypt password hashing, role-based access control, and method-level security. The next post adds JWT tokens to make it truly stateless.
+</Callout>
+
+## What's Next?
+
+**Spring Boot #5** goes deep on JWT with Spring Security — access tokens, refresh tokens in HttpOnly cookies, token rotation, and the full filter chain. The production-grade version.

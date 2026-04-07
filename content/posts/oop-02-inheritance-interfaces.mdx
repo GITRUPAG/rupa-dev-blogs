@@ -1,0 +1,227 @@
+---
+title: "OOP #2 — Inheritance, Interfaces & Polymorphism"
+description: "Extend classes, implement interfaces, and write code that works with types it's never seen. The core of flexible Java design."
+date: "2025-01-30"
+tags: ["java", "oop", "inheritance", "interfaces", "polymorphism"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 6
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Inheritance — Extending a Class
+
+```java
+public class Animal {
+    protected String name;
+    protected int age;
+
+    public Animal(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    public void eat() {
+        System.out.println(name + " is eating");
+    }
+
+    public String describe() {
+        return name + " (age " + age + ")";
+    }
+}
+
+public class Dog extends Animal {
+    private String breed;
+
+    public Dog(String name, int age, String breed) {
+        super(name, age);  // call parent constructor — must be first line
+        this.breed = breed;
+    }
+
+    public void bark() {
+        System.out.println(name + " says: Woof!");
+    }
+
+    @Override
+    public String describe() {
+        return super.describe() + ", breed: " + breed;
+    }
+}
+```
+
+```java
+Dog dog = new Dog("Rex", 3, "Labrador");
+dog.eat();        // Rex is eating (inherited)
+dog.bark();       // Rex says: Woof!
+dog.describe();   // Rex (age 3), breed: Labrador
+```
+
+<Callout type="info" title="@Override is not optional — use it">
+  `@Override` tells the compiler you intend to override a parent method. Without it, a typo in the method name silently creates a new method instead of overriding. Always use it.
+</Callout>
+
+## The `final` Keyword on Classes and Methods
+
+```java
+public final class ImmutableValue { }  // can't be extended
+
+public class Base {
+    public final void criticalMethod() { }  // can't be overridden
+}
+```
+
+## Abstract Classes
+
+An abstract class can't be instantiated — it's a partial implementation meant to be extended:
+
+```java
+public abstract class Shape {
+    private String color;
+
+    public Shape(String color) { this.color = color; }
+
+    // Concrete method — shared by all shapes
+    public String getColor() { return color; }
+
+    // Abstract method — each shape must implement this
+    public abstract double area();
+    public abstract double perimeter();
+}
+
+public class Circle extends Shape {
+    private double radius;
+
+    public Circle(String color, double radius) {
+        super(color);
+        this.radius = radius;
+    }
+
+    @Override public double area()      { return Math.PI * radius * radius; }
+    @Override public double perimeter() { return 2 * Math.PI * radius; }
+}
+
+public class Rectangle extends Shape {
+    private double w, h;
+
+    public Rectangle(String color, double w, double h) {
+        super(color);
+        this.w = w;
+        this.h = h;
+    }
+
+    @Override public double area()      { return w * h; }
+    @Override public double perimeter() { return 2 * (w + h); }
+}
+```
+
+## Interfaces — Define a Contract
+
+An interface says "any class that implements me must have these methods":
+
+```java
+public interface Drawable {
+    void draw();  // implicitly public abstract
+    
+    // Default method — has a body, can be overridden
+    default String getDrawInfo() {
+        return "Drawable object";
+    }
+}
+
+public interface Resizable {
+    void resize(double factor);
+}
+
+// A class can implement multiple interfaces
+public class Canvas implements Drawable, Resizable {
+    @Override
+    public void draw() { System.out.println("Drawing on canvas"); }
+
+    @Override
+    public void resize(double factor) { System.out.println("Resizing by " + factor); }
+}
+```
+
+<Callout type="info" title="Abstract class vs Interface">
+  Use an **abstract class** when subclasses share state (fields) or base behaviour. Use an **interface** to define a capability contract that unrelated classes can fulfil. A class can only extend one class but implement many interfaces.
+</Callout>
+
+## Polymorphism — One Variable, Many Types
+
+```java
+// The variable type is Shape, but the object can be any subclass
+Shape s1 = new Circle("red", 5);
+Shape s2 = new Rectangle("blue", 4, 6);
+
+// Both call area() — but the RIGHT version for each type
+System.out.println(s1.area());  // 78.53... (Circle's area)
+System.out.println(s2.area());  // 24.0 (Rectangle's area)
+
+// Works in collections too
+List<Shape> shapes = List.of(new Circle("red", 3), new Rectangle("blue", 4, 5));
+for (Shape shape : shapes) {
+    System.out.println(shape.area());  // calls the right area() for each
+}
+```
+
+## instanceof and Pattern Matching (Java 16+)
+
+```java
+// Old way — verbose and repetitive
+if (shape instanceof Circle) {
+    Circle c = (Circle) shape;
+    System.out.println(c.getRadius());
+}
+
+// New way — pattern matching (Java 16+)
+if (shape instanceof Circle c) {
+    System.out.println(c.getRadius());  // c is already cast and ready
+}
+
+// Pattern matching in switch (Java 21)
+String info = switch (shape) {
+    case Circle c    -> "Circle with radius " + c.getRadius();
+    case Rectangle r -> "Rectangle " + r.getW() + "x" + r.getH();
+    default          -> "Unknown shape";
+};
+```
+
+## Sealed Classes — Controlled Hierarchies (Java 17+)
+
+Sealed classes restrict which classes can extend them:
+
+```java
+public sealed class Result<T> permits Success, Failure {
+    // ...
+}
+
+public final class Success<T> extends Result<T> {
+    private final T value;
+    public Success(T value) { this.value = value; }
+    public T getValue() { return value; }
+}
+
+public final class Failure<T> extends Result<T> {
+    private final String error;
+    public Failure(String error) { this.error = error; }
+    public String getError() { return error; }
+}
+
+// Now switch is exhaustive — compiler knows all subtypes
+String msg = switch (result) {
+    case Success<String> s -> "Got: " + s.getValue();
+    case Failure<String> f -> "Error: " + f.getError();
+    // no default needed — sealed covers all cases
+};
+```
+
+<Callout type="success" title="Favour interfaces over inheritance">
+  Deep inheritance hierarchies become tangled quickly. In modern Java, prefer implementing interfaces + composition over extending classes. This is the "favour composition over inheritance" principle.
+</Callout>
+
+## What's Next?
+
+**Collections & Streams #1** covers the Java Collections Framework — List, Set, Map, and how to choose the right one. This is where you'll spend most of your day-to-day Java time.

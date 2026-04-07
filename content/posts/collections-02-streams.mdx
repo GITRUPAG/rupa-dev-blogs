@@ -1,0 +1,231 @@
+---
+title: "Collections & Streams #2 — The Streams API"
+description: "Replace imperative loops with expressive pipelines. filter, map, flatMap, reduce, collect, and groupingBy — the operations you'll use every day."
+date: "2025-02-03"
+tags: ["java", "streams", "functional", "lambda"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 8
+featured: true
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What Is a Stream?
+
+A Stream is a pipeline for processing data. It doesn't store data — it processes it lazily, operation by operation.
+
+```
+Source → [intermediate ops] → terminal op
+```
+
+```java
+List<String> names = List.of("Alice", "Bob", "Charlie", "Dave", "Eve");
+
+// Imperative (old way)
+List<String> result = new ArrayList<>();
+for (String name : names) {
+    if (name.length() > 3) {
+        result.add(name.toUpperCase());
+    }
+}
+
+// Stream (new way)
+List<String> result = names.stream()
+    .filter(name -> name.length() > 3)
+    .map(String::toUpperCase)
+    .collect(Collectors.toList());
+
+// [ALICE, CHARLIE, DAVE]
+```
+
+## Lambda Expressions
+
+Streams rely on lambdas — anonymous functions you pass as arguments:
+
+```java
+// Full syntax
+Runnable r = () -> { System.out.println("Hello"); };
+
+// Single expression (no braces or return needed)
+Predicate<String> isLong = s -> s.length() > 5;
+
+// Two parameters
+Comparator<String> byLength = (a, b) -> a.length() - b.length();
+
+// Method reference — shorthand when you're just calling one method
+names.stream().map(String::toUpperCase)  // same as s -> s.toUpperCase()
+names.stream().forEach(System.out::println)  // same as s -> System.out.println(s)
+```
+
+## Intermediate Operations (lazy — don't run until terminal op)
+
+**filter** — keep elements matching a predicate:
+```java
+stream.filter(n -> n > 0)           // only positives
+stream.filter(s -> s.startsWith("A")) // only names starting with A
+```
+
+**map** — transform each element:
+```java
+stream.map(String::length)           // String → Integer (lengths)
+stream.map(User::getEmail)           // User → String
+stream.map(s -> s.trim().toLowerCase())
+```
+
+**flatMap** — flatten a stream of collections into one stream:
+```java
+List<List<Integer>> nested = List.of(List.of(1, 2), List.of(3, 4), List.of(5));
+List<Integer> flat = nested.stream()
+    .flatMap(List::stream)           // [[1,2],[3,4],[5]] → [1,2,3,4,5]
+    .collect(Collectors.toList());
+```
+
+**sorted** — sort elements:
+```java
+stream.sorted()                         // natural order
+stream.sorted(Comparator.reverseOrder()) // reverse
+stream.sorted(Comparator.comparing(User::getName))  // by field
+```
+
+**distinct** — remove duplicates:
+```java
+List<Integer> deduped = List.of(1, 2, 2, 3, 3, 3).stream()
+    .distinct()
+    .collect(Collectors.toList());  // [1, 2, 3]
+```
+
+**limit / skip**:
+```java
+stream.limit(5)   // take first 5
+stream.skip(10)   // skip first 10
+```
+
+**peek** — for debugging (runs action without modifying stream):
+```java
+stream
+    .filter(n -> n > 0)
+    .peek(n -> System.out.println("after filter: " + n))
+    .map(n -> n * 2)
+    .collect(Collectors.toList());
+```
+
+## Terminal Operations (trigger execution)
+
+**collect** — gather results into a collection:
+```java
+List<String> list    = stream.collect(Collectors.toList());
+Set<String> set      = stream.collect(Collectors.toSet());
+String joined        = stream.collect(Collectors.joining(", "));
+String joined2       = stream.collect(Collectors.joining(", ", "[", "]"));
+```
+
+**forEach**:
+```java
+stream.forEach(System.out::println);
+```
+
+**count / sum / average / min / max**:
+```java
+long count = stream.count();
+int sum    = intStream.sum();
+OptionalDouble avg = intStream.average();
+Optional<String> min = stream.min(Comparator.naturalOrder());
+Optional<String> max = stream.max(Comparator.naturalOrder());
+```
+
+**reduce** — combine all elements into one:
+```java
+int sum = List.of(1, 2, 3, 4, 5).stream()
+    .reduce(0, Integer::sum);  // 15
+
+Optional<String> longest = names.stream()
+    .reduce((a, b) -> a.length() >= b.length() ? a : b);
+```
+
+**findFirst / findAny**:
+```java
+Optional<String> first = stream.filter(s -> s.startsWith("A")).findFirst();
+first.ifPresent(System.out::println);
+```
+
+**anyMatch / allMatch / noneMatch**:
+```java
+boolean anyAdult  = users.stream().anyMatch(u -> u.getAge() >= 18);
+boolean allAdult  = users.stream().allMatch(u -> u.getAge() >= 18);
+boolean noneUnder = users.stream().noneMatch(u -> u.getAge() < 0);
+```
+
+## Collectors.groupingBy — Extremely Useful
+
+```java
+List<User> users = getUsers();
+
+// Group by role
+Map<String, List<User>> byRole = users.stream()
+    .collect(Collectors.groupingBy(User::getRole));
+
+// Count by role
+Map<String, Long> countByRole = users.stream()
+    .collect(Collectors.groupingBy(User::getRole, Collectors.counting()));
+
+// Average age by role
+Map<String, Double> avgAgeByRole = users.stream()
+    .collect(Collectors.groupingBy(
+        User::getRole,
+        Collectors.averagingInt(User::getAge)
+    ));
+```
+
+## Optional — Handle Absence Safely
+
+```java
+Optional<User> user = users.stream()
+    .filter(u -> u.getId() == targetId)
+    .findFirst();
+
+// Bad — throws NoSuchElementException if empty
+User u = user.get();
+
+// Good ways to use Optional
+user.ifPresent(u -> System.out.println(u.getName()));
+User u = user.orElse(new User("guest"));
+User u = user.orElseGet(() -> createDefaultUser());
+User u = user.orElseThrow(() -> new NotFoundException("User not found"));
+String name = user.map(User::getName).orElse("Anonymous");
+```
+
+<Callout type="warning" title="Never call Optional.get() without checking isPresent()">
+  Calling `.get()` on an empty Optional throws `NoSuchElementException`. Always use `orElse`, `orElseGet`, `orElseThrow`, or `ifPresent`.
+</Callout>
+
+## Real-World Example
+
+```java
+record Order(String customer, String product, double amount, boolean paid) {}
+
+List<Order> orders = getOrders();
+
+// Total revenue from paid orders, grouped by customer
+Map<String, Double> revenueByCustomer = orders.stream()
+    .filter(Order::paid)
+    .collect(Collectors.groupingBy(
+        Order::customer,
+        Collectors.summingDouble(Order::amount)
+    ));
+
+// Top 3 customers by revenue
+revenueByCustomer.entrySet().stream()
+    .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+    .limit(3)
+    .forEach(e -> System.out.printf("%s: $%.2f%n", e.getKey(), e.getValue()));
+```
+
+<Callout type="success" title="Streams are not always faster">
+  Streams add clarity but don't automatically make your code faster. For simple loops over small collections, a plain `for` loop is fine. Use streams when they make the intent clearer, not just to look modern.
+</Callout>
+
+## What's Next?
+
+**Spring Boot #1** — we're moving to the framework. We'll bootstrap a REST API from scratch using Spring Initializr and understand how Spring Boot's auto-configuration magic works.

@@ -1,0 +1,132 @@
+---
+title: "Java Basics #1 — Introduction to Java & Setting Up"
+description: "What Java actually is, how the JVM works, and getting your dev environment ready in under 10 minutes."
+date: "2025-01-20"
+tags: ["java", "basics", "jvm", "setup"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 1
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What Is Java, Really?
+
+Java isn't just a language — it's a platform. When you write Java code, you're not compiling to machine code for one specific OS. You're compiling to **bytecode** that runs on the JVM (Java Virtual Machine). That's the "write once, run anywhere" promise.
+
+```
+Your .java file → javac → .class (bytecode) → JVM → runs on any OS
+```
+
+The three things you need to know up front:
+
+- **JDK** — Java Development Kit. You write code with this.
+- **JRE** — Java Runtime Environment. Included in the JDK. Runs code.
+- **JVM** — The virtual machine that actually executes bytecode.
+
+## Installing Java (JDK 21 LTS)
+
+JDK 21 is the current long-term support version. Don't install Java 8 just because a tutorial told you to.
+
+**macOS (Homebrew):**
+```bash
+brew install openjdk@21
+echo 'export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install openjdk-21-jdk
+```
+
+**Windows:**
+Download from [adoptium.net](https://adoptium.net) and run the installer. Make sure to check "Set JAVA_HOME variable".
+
+**Verify it worked:**
+```bash
+java -version
+javac -version
+```
+
+## Your First Java Program
+
+Create a file called `Hello.java`:
+
+```java
+public class Hello {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+    }
+}
+```
+
+Compile and run it:
+
+```bash
+javac Hello.java
+java Hello
+```
+
+You'll see `Hello, Java!` printed. Let's break down what each part means:
+
+- `public class Hello` — Every Java file has a class with the same name as the file.
+- `public static void main(String[] args)` — The entry point. Java always starts here.
+- `System.out.println(...)` — Print to the console with a newline.
+
+<Callout type="info" title="Class name = File name">
+  In Java, the public class name must exactly match the filename (including case). `Hello.java` must contain `public class Hello`. This trips up beginners constantly.
+</Callout>
+
+## IDE Setup — IntelliJ IDEA
+
+Use IntelliJ IDEA Community Edition (free). It's what most professional Java devs use.
+
+1. Download from [jetbrains.com/idea](https://www.jetbrains.com/idea/)
+2. Create a new project → Java → SDK: 21
+3. Create `src/Hello.java`
+4. Click the green ▶ button
+
+<Callout type="warning" title="Don't use Eclipse">
+  Eclipse was the standard in 2010. IntelliJ is what teams actually use in 2025. Learn the right tool from the start.
+</Callout>
+
+## How the JVM Works (Simplified)
+
+When you run `java Hello`, here's what happens:
+
+<Step number={1} title="Class Loading">
+  The JVM's ClassLoader finds your `.class` file and loads it into memory.
+</Step>
+
+<Step number={2} title="Bytecode Verification">
+  The JVM checks the bytecode is valid and won't corrupt memory. This is part of Java's security model.
+</Step>
+
+<Step number={3} title="JIT Compilation">
+  The Just-In-Time compiler watches which code runs frequently ("hot paths") and compiles those to native machine code for speed.
+</Step>
+
+<Step number={4} title="Execution">
+  Your code runs. The Garbage Collector manages memory automatically — no `malloc`/`free` like in C.
+</Step>
+
+## Java Versions — Which to Use?
+
+| Version | Type | Use it? |
+|---------|------|---------|
+| Java 8  | LTS  | Only for legacy projects |
+| Java 11 | LTS  | Still common in enterprise |
+| Java 17 | LTS  | Safe choice for new projects |
+| Java 21 | LTS  | ✅ Best choice right now |
+
+<Callout type="success" title="You're ready">
+  JDK 21 installed, IntelliJ set up, and your first program compiled. In the next post we'll cover variables, data types, and operators — the actual building blocks of every Java program.
+</Callout>
+
+## What's Next?
+
+In **Java Basics #2**, we'll cover variables, primitive types, type casting, and operators — and why `int` and `Integer` are not the same thing.

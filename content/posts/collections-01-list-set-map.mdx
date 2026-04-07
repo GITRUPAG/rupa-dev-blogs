@@ -1,0 +1,187 @@
+---
+title: "Collections & Streams #1 — List, Set & Map"
+description: "The Java Collections Framework explained. ArrayList vs LinkedList, HashSet vs TreeSet, HashMap vs LinkedHashMap — and when to use each."
+date: "2025-02-01"
+tags: ["java", "collections", "list", "map", "set"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 7
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## The Collections Hierarchy (Simplified)
+
+```
+Collection
+├── List       — ordered, allows duplicates
+│   ├── ArrayList
+│   └── LinkedList
+├── Set        — no duplicates
+│   ├── HashSet
+│   ├── LinkedHashSet
+│   └── TreeSet
+└── Queue
+    └── LinkedList / ArrayDeque
+
+Map (not a Collection, but part of the framework)
+├── HashMap
+├── LinkedHashMap
+└── TreeMap
+```
+
+## List — Ordered Sequence
+
+**ArrayList** — backed by a dynamic array. Fast random access (`O(1)`), slow insert/delete in the middle (`O(n)`).
+
+```java
+List<String> names = new ArrayList<>();
+names.add("Alice");
+names.add("Bob");
+names.add("Charlie");
+names.add(1, "Dave");  // insert at index 1
+
+System.out.println(names);      // [Alice, Dave, Bob, Charlie]
+System.out.println(names.get(2)); // Bob
+names.remove("Dave");
+names.remove(0);                // remove by index
+System.out.println(names.size()); // 2
+
+// Check membership
+boolean has = names.contains("Bob");  // true
+
+// Iterate
+for (String name : names) System.out.println(name);
+
+// Sort
+Collections.sort(names);
+names.sort(Comparator.naturalOrder());
+names.sort(Comparator.reverseOrder());
+```
+
+**LinkedList** — backed by a doubly-linked list. Fast insert/delete at head or tail (`O(1)`), slow random access (`O(n)`). Use it as a Queue or Deque, not a general list:
+
+```java
+Deque<String> queue = new LinkedList<>();
+queue.addFirst("first");
+queue.addLast("last");
+queue.pollFirst();  // removes and returns "first"
+```
+
+<Callout type="info" title="Use ArrayList by default">
+  95% of the time, ArrayList is the right choice. LinkedList only wins when you're doing many insertions/deletions at the head of the list. Measure before switching.
+</Callout>
+
+**Immutable Lists:**
+```java
+List<String> fixed = List.of("a", "b", "c");  // Java 9+ — can't add/remove
+List<String> copy = new ArrayList<>(fixed);   // mutable copy
+```
+
+## Set — No Duplicates
+
+**HashSet** — fastest, no guaranteed order:
+```java
+Set<String> tags = new HashSet<>();
+tags.add("java");
+tags.add("spring");
+tags.add("java");  // duplicate — silently ignored
+System.out.println(tags.size());     // 2
+System.out.println(tags.contains("java"));  // true
+```
+
+**LinkedHashSet** — insertion order preserved:
+```java
+Set<String> ordered = new LinkedHashSet<>();
+ordered.add("c");
+ordered.add("a");
+ordered.add("b");
+System.out.println(ordered);  // [c, a, b]
+```
+
+**TreeSet** — sorted order:
+```java
+Set<Integer> sorted = new TreeSet<>();
+sorted.add(5); sorted.add(1); sorted.add(3);
+System.out.println(sorted);  // [1, 3, 5]
+```
+
+## Map — Key-Value Pairs
+
+**HashMap** — fastest, no order guarantee:
+```java
+Map<String, Integer> scores = new HashMap<>();
+scores.put("Alice", 95);
+scores.put("Bob", 87);
+scores.put("Alice", 98);  // updates existing key
+
+System.out.println(scores.get("Alice"));         // 98
+System.out.println(scores.getOrDefault("Eve", 0)); // 0 — safe default
+
+scores.putIfAbsent("Charlie", 70);  // only adds if key doesn't exist
+
+// Iterate entries
+for (Map.Entry<String, Integer> entry : scores.entrySet()) {
+    System.out.println(entry.getKey() + ": " + entry.getValue());
+}
+
+// Convenient operations
+scores.forEach((name, score) -> System.out.println(name + ": " + score));
+```
+
+**LinkedHashMap** — insertion order:
+```java
+Map<String, String> config = new LinkedHashMap<>();
+config.put("host", "localhost");
+config.put("port", "8080");
+config.put("db", "myapp");
+// iteration always returns host, port, db in that order
+```
+
+**TreeMap** — sorted by key:
+```java
+Map<String, Integer> sorted = new TreeMap<>();
+sorted.put("banana", 2);
+sorted.put("apple", 5);
+sorted.put("cherry", 1);
+// iterates: apple, banana, cherry
+```
+
+<Callout type="info" title="Choosing the right Map">
+  Default: `HashMap`. Need insertion order: `LinkedHashMap`. Need sorted keys: `TreeMap`. Need thread safety: `ConcurrentHashMap`.
+</Callout>
+
+## Useful Collections Utility Methods
+
+```java
+List<Integer> nums = new ArrayList<>(List.of(3, 1, 4, 1, 5, 9, 2, 6));
+
+Collections.sort(nums);                          // [1, 1, 2, 3, 4, 5, 6, 9]
+Collections.reverse(nums);                       // [9, 6, 5, 4, 3, 2, 1, 1]
+Collections.shuffle(nums);                       // random order
+int max = Collections.max(nums);                 // largest element
+int min = Collections.min(nums);                 // smallest element
+Collections.frequency(nums, 1);                 // count of 1s
+
+List<Integer> unmodifiable = Collections.unmodifiableList(nums);
+// unmodifiable.add(99);  ❌ throws UnsupportedOperationException
+```
+
+## Choosing the Right Collection
+
+| Need | Use |
+|------|-----|
+| Ordered list, fast access by index | `ArrayList` |
+| No duplicates | `HashSet` |
+| No duplicates + insertion order | `LinkedHashSet` |
+| No duplicates + sorted | `TreeSet` |
+| Key → value lookup | `HashMap` |
+| Key → value + insertion order | `LinkedHashMap` |
+| Key → value + sorted keys | `TreeMap` |
+| FIFO queue | `ArrayDeque` |
+
+## What's Next?
+
+**Collections & Streams #2** covers the Streams API — functional-style processing pipelines that replace most manual loops. `filter`, `map`, `reduce`, `collect` and more.

@@ -1,0 +1,256 @@
+---
+title: "Spring Boot #2 — Validation & Exception Handling"
+description: "Bean Validation annotations, @ControllerAdvice for global exception handling, and returning clean consistent error responses."
+date: "2025-02-07"
+tags: ["spring-boot", "java", "validation", "error-handling"]
+category: "spring-boot"
+series: "java-basics-to-advanced"
+seriesOrder: 10
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Why Exception Handling Matters
+
+Without proper error handling, Spring Boot returns its default whitelabel error page (useless) or a stack trace dump (dangerous in production). You want consistent, structured error responses like this:
+
+```json
+{
+  "status": 404,
+  "error": "NOT_FOUND",
+  "message": "Product with id 42 was not found",
+  "timestamp": "2025-02-07T10:15:30"
+}
+```
+
+## Custom Exceptions
+
+```java
+// Base exception
+public class AppException extends RuntimeException {
+    private final HttpStatus status;
+
+    public AppException(String message, HttpStatus status) {
+        super(message);
+        this.status = status;
+    }
+
+    public HttpStatus getStatus() { return status; }
+}
+
+// Specific exceptions
+public class ResourceNotFoundException extends AppException {
+    public ResourceNotFoundException(String resource, Long id) {
+        super(resource + " with id " + id + " was not found", HttpStatus.NOT_FOUND);
+    }
+}
+
+public class DuplicateResourceException extends AppException {
+    public DuplicateResourceException(String message) {
+        super(message, HttpStatus.CONFLICT);
+    }
+}
+
+public class BadRequestException extends AppException {
+    public BadRequestException(String message) {
+        super(message, HttpStatus.BAD_REQUEST);
+    }
+}
+```
+
+## The Error Response DTO
+
+```java
+public record ErrorResponse(
+    int status,
+    String error,
+    String message,
+    LocalDateTime timestamp
+) {
+    public static ErrorResponse of(HttpStatus status, String message) {
+        return new ErrorResponse(
+            status.value(),
+            status.name(),
+            message,
+            LocalDateTime.now()
+        );
+    }
+}
+```
+
+## @ControllerAdvice — Global Exception Handler
+
+```java
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+
+    // Handle our custom exceptions
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ErrorResponse> handleAppException(AppException ex) {
+        log.warn("Application exception: {}", ex.getMessage());
+        return ResponseEntity
+            .status(ex.getStatus())
+            .body(ErrorResponse.of(ex.getStatus(), ex.getMessage()));
+    }
+
+    // Handle validation errors
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationErrors(
+            MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult()
+            .getFieldErrors()
+            .stream()
+            .map(err -> err.getField() + ": " + err.getDefaultMessage())
+            .collect(Collectors.joining(", "));
+
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, message));
+    }
+
+    // Handle path variable type mismatch (e.g. /products/abc)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex) {
+        String message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, message));
+    }
+
+    // Catch-all for unexpected exceptions
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+        log.error("Unexpected error", ex);
+        return ResponseEntity
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred"));
+    }
+}
+```
+
+<Callout type="warning" title="Never expose stack traces in production">
+  The catch-all handler logs the full exception but only returns a generic message to the client. Never serialize exception details (stack traces, internal class names) in API responses.
+</Callout>
+
+## Bean Validation
+
+Add the starter (included with `spring-boot-starter-web`):
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-validation</artifactId>
+</dependency>
+```
+
+**Annotate your DTO:**
+```java
+public record CreateProductRequest(
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
+    String name,
+
+    @NotNull(message = "Price is required")
+    @Positive(message = "Price must be positive")
+    Double price,
+
+    @Min(value = 0, message = "Stock cannot be negative")
+    int stock,
+
+    @Email(message = "Supplier email must be valid")
+    String supplierEmail
+) {}
+```
+
+**Trigger validation with @Valid in your controller:**
+```java
+@PostMapping
+@ResponseStatus(HttpStatus.CREATED)
+public ProductResponse create(@Valid @RequestBody CreateProductRequest request) {
+    return productService.createProduct(request);
+}
+```
+
+If validation fails, Spring throws `MethodArgumentNotValidException` — which our `GlobalExceptionHandler` catches and formats cleanly.
+
+## Common Validation Annotations
+
+| Annotation | What it checks |
+|------------|---------------|
+| `@NotNull` | Not null |
+| `@NotBlank` | Not null, not empty, not whitespace |
+| `@NotEmpty` | Not null, not empty (but whitespace is ok) |
+| `@Size(min, max)` | String/collection length |
+| `@Min(n)` / `@Max(n)` | Numeric range |
+| `@Positive` / `@PositiveOrZero` | > 0 or >= 0 |
+| `@Email` | Valid email format |
+| `@Pattern(regexp)` | Matches regex |
+| `@Past` / `@Future` | Date in past or future |
+
+## Custom Validation Annotation
+
+```java
+// 1. Define the annotation
+@Target({ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy = StrongPasswordValidator.class)
+public @interface StrongPassword {
+    String message() default "Password must be 8+ chars with upper, lower, digit, and symbol";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+}
+
+// 2. Implement the validator
+public class StrongPasswordValidator implements ConstraintValidator<StrongPassword, String> {
+    private static final Pattern PATTERN = Pattern.compile(
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+    );
+
+    @Override
+    public boolean isValid(String value, ConstraintValidatorContext context) {
+        return value != null && PATTERN.matcher(value).matches();
+    }
+}
+
+// 3. Use it
+public record RegisterRequest(
+    @NotBlank String username,
+    @StrongPassword String password
+) {}
+```
+
+## Updating the Service to Use Custom Exceptions
+
+```java
+@Service
+@RequiredArgsConstructor
+public class ProductService {
+
+    private final ProductRepository productRepository;
+
+    public Product getProductById(Long id) {
+        return productRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    }
+
+    public Product createProduct(CreateProductRequest request) {
+        if (productRepository.existsByName(request.name())) {
+            throw new DuplicateResourceException("Product with name '" + request.name() + "' already exists");
+        }
+        Product product = new Product(null, request.name(), request.price(), request.stock());
+        return productRepository.save(product);
+    }
+}
+```
+
+<Callout type="success" title="Separate request DTOs from entities">
+  Never accept your JPA `@Entity` directly as a `@RequestBody`. Use a separate DTO. This prevents clients from setting internal fields like `id`, `createdAt`, or `version`.
+</Callout>
+
+## What's Next?
+
+**Spring Boot #3** covers Spring Data JPA in depth — custom queries with JPQL and native SQL, pagination, sorting, and database migrations with Flyway.

@@ -1,0 +1,264 @@
+---
+title: "Spring Boot #1 — Getting Started & Your First REST API"
+description: "Bootstrap a Spring Boot project, understand auto-configuration, and build a working REST API in 20 minutes."
+date: "2025-02-05"
+tags: ["spring-boot", "java", "rest", "api"]
+category: "spring-boot"
+series: "java-basics-to-advanced"
+seriesOrder: 9
+featured: true
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What Is Spring Boot?
+
+Spring Boot is Spring Framework with the boring setup done for you. Spring Framework is powerful but required hundreds of lines of XML configuration. Spring Boot uses **auto-configuration** — it looks at your dependencies and configures everything sensibly by default.
+
+You get:
+- Embedded Tomcat server (no WAR deployment)
+- Auto-configured beans based on classpath
+- Production-ready metrics and health endpoints
+- Opinionated defaults you can override
+
+## Project Setup with Spring Initializr
+
+Go to [start.spring.io](https://start.spring.io) and select:
+
+- **Project**: Maven
+- **Language**: Java
+- **Spring Boot**: 3.x (latest stable)
+- **Java**: 21
+- **Dependencies**: Spring Web, Spring Data JPA, H2 Database, Lombok
+
+Download, extract, and open in IntelliJ.
+
+Your `pom.xml` will have:
+```xml
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.0</version>
+</parent>
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <optional>true</optional>
+    </dependency>
+</dependencies>
+```
+
+## The Main Class
+
+```java
+@SpringBootApplication
+public class MyAppApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MyAppApplication.class, args);
+    }
+}
+```
+
+`@SpringBootApplication` is shorthand for three annotations:
+- `@Configuration` — this class defines Spring beans
+- `@EnableAutoConfiguration` — enable Spring Boot's auto-config
+- `@ComponentScan` — scan this package and sub-packages for components
+
+## Your First Controller
+
+```java
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    @GetMapping
+    public List<String> getAllProducts() {
+        return List.of("Laptop", "Phone", "Tablet");
+    }
+
+    @GetMapping("/{id}")
+    public String getProduct(@PathVariable Long id) {
+        return "Product " + id;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public String createProduct(@RequestBody Map<String, String> body) {
+        return "Created: " + body.get("name");
+    }
+}
+```
+
+Run with `./mvnw spring-boot:run` and hit `http://localhost:8080/api/products`.
+
+<Callout type="info" title="@RestController = @Controller + @ResponseBody">
+  `@RestController` automatically serializes return values to JSON. Without it, Spring would try to resolve a view template name.
+</Callout>
+
+## The Layered Architecture
+
+Spring Boot projects follow a standard layered structure:
+
+```
+Controller  →  receives HTTP requests, delegates to Service
+Service     →  business logic, orchestrates Repositories
+Repository  →  database access via JPA
+Entity      →  maps to a database table
+```
+
+<FileTree>
+src/main/java/com/example/myapp/
+├── controller/
+│   └── ProductController.java
+├── service/
+│   └── ProductService.java
+├── repository/
+│   └── ProductRepository.java
+├── entity/
+│   └── Product.java
+└── MyAppApplication.java
+</FileTree>
+
+## Entity + Repository
+
+```java
+@Entity
+@Table(name = "products")
+@Data  // Lombok: generates getters, setters, toString, equals, hashCode
+@NoArgsConstructor
+@AllArgsConstructor
+public class Product {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    private double price;
+    private int stock;
+}
+```
+
+```java
+public interface ProductRepository extends JpaRepository<Product, Long> {
+    // JpaRepository gives you: findAll, findById, save, delete, count, etc.
+    
+    // Spring Data generates the query from the method name:
+    List<Product> findByNameContainingIgnoreCase(String keyword);
+    List<Product> findByPriceLessThan(double price);
+    Optional<Product> findByName(String name);
+}
+```
+
+## Service Layer
+
+```java
+@Service
+@RequiredArgsConstructor  // Lombok: generates constructor for final fields
+public class ProductService {
+
+    private final ProductRepository productRepository;
+
+    public List<Product> getAllProducts() {
+        return productRepository.findAll();
+    }
+
+    public Product getProductById(Long id) {
+        return productRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+    }
+
+    public Product createProduct(Product product) {
+        return productRepository.save(product);
+    }
+
+    public Product updateStock(Long id, int delta) {
+        Product p = getProductById(id);
+        p.setStock(p.getStock() + delta);
+        return productRepository.save(p);
+    }
+
+    public void deleteProduct(Long id) {
+        productRepository.deleteById(id);
+    }
+}
+```
+
+## Full Controller Wired Up
+
+```java
+@RestController
+@RequestMapping("/api/products")
+@RequiredArgsConstructor
+public class ProductController {
+
+    private final ProductService productService;
+
+    @GetMapping
+    public List<Product> getAll() {
+        return productService.getAllProducts();
+    }
+
+    @GetMapping("/{id}")
+    public Product getOne(@PathVariable Long id) {
+        return productService.getProductById(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Product create(@RequestBody Product product) {
+        return productService.createProduct(product);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        productService.deleteProduct(id);
+    }
+}
+```
+
+## application.properties
+
+```properties
+# Server
+server.port=8080
+
+# H2 in-memory database (for dev only)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driver-class-name=org.h2.Driver
+spring.h2.console.enabled=true
+
+# JPA
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+```
+
+Access H2 console at `http://localhost:8080/h2-console`.
+
+<Callout type="warning" title="Never use create-drop in production">
+  `spring.jpa.hibernate.ddl-auto=create-drop` drops and recreates your schema on every restart. For production, use `validate` and manage schema with Flyway or Liquibase.
+</Callout>
+
+## What's Next?
+
+**Spring Boot #2** covers proper exception handling, validation with Bean Validation, and returning consistent API error responses. The difference between a prototype and a production API.

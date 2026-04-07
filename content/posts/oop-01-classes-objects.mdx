@@ -1,0 +1,233 @@
+---
+title: "OOP #1 — Classes, Objects & Constructors"
+description: "How to model real-world things as Java classes. Encapsulation, constructors, getters/setters, and the builder pattern."
+date: "2025-01-28"
+tags: ["java", "oop", "classes", "constructors"]
+category: "java"
+series: "java-basics-to-advanced"
+seriesOrder: 5
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What Is a Class?
+
+A class is a blueprint. An object is an instance built from that blueprint. Think of a class as the cookie cutter, objects as the cookies.
+
+```java
+// The blueprint
+public class User {
+    // Fields (state)
+    private String name;
+    private String email;
+    private int age;
+
+    // Constructor (how to create an instance)
+    public User(String name, String email, int age) {
+        this.name = name;
+        this.email = email;
+        this.age = age;
+    }
+
+    // Methods (behavior)
+    public void greet() {
+        System.out.println("Hi, I'm " + name);
+    }
+}
+
+// Creating objects
+User user1 = new User("Rupa", "rupa@dev.io", 28);
+User user2 = new User("Alice", "alice@dev.io", 24);
+
+user1.greet();  // Hi, I'm Rupa
+user2.greet();  // Hi, I'm Alice
+```
+
+## The `this` Keyword
+
+`this` refers to the current object instance:
+
+```java
+public class User {
+    private String name;
+
+    public User(String name) {
+        this.name = name;  // this.name = field, name = parameter
+    }
+
+    // Calling another constructor (constructor chaining)
+    public User(String name, String email) {
+        this(name);  // calls User(String name) constructor
+        // then do more...
+    }
+}
+```
+
+## Encapsulation — Private Fields + Public Methods
+
+Fields should almost always be `private`. Control access through methods:
+
+```java
+public class BankAccount {
+    private double balance;  // can't be accessed directly from outside
+
+    public BankAccount(double initialBalance) {
+        if (initialBalance < 0) throw new IllegalArgumentException("Balance can't be negative");
+        this.balance = initialBalance;
+    }
+
+    public double getBalance() {
+        return balance;
+    }
+
+    public void deposit(double amount) {
+        if (amount <= 0) throw new IllegalArgumentException("Deposit must be positive");
+        balance += amount;
+    }
+
+    public void withdraw(double amount) {
+        if (amount > balance) throw new IllegalStateException("Insufficient funds");
+        balance -= amount;
+    }
+}
+```
+
+```java
+BankAccount acc = new BankAccount(1000);
+acc.deposit(500);
+acc.withdraw(200);
+System.out.println(acc.getBalance());  // 1300.0
+
+// acc.balance = -9999;  ❌ won't compile — field is private
+```
+
+<Callout type="info" title="Why encapsulate?">
+  Without encapsulation, any code anywhere can set `balance = -999999`. Encapsulation lets you validate, log, and control every change to your object's state.
+</Callout>
+
+## Getters and Setters
+
+```java
+public class Product {
+    private String name;
+    private double price;
+
+    public Product(String name, double price) {
+        this.name = name;
+        setPrice(price);  // reuse validation logic
+    }
+
+    public String getName() { return name; }
+
+    public double getPrice() { return price; }
+
+    public void setPrice(double price) {
+        if (price < 0) throw new IllegalArgumentException("Price cannot be negative");
+        this.price = price;
+    }
+    // no setName() — name is read-only after construction
+}
+```
+
+<Callout type="warning" title="Don't generate getters/setters blindly">
+  IDEs auto-generate getters/setters for everything. That's not encapsulation — that's just boilerplate. Only expose what needs to be exposed.
+</Callout>
+
+## Multiple Constructors
+
+```java
+public class Rectangle {
+    private final double width;
+    private final double height;
+
+    // Full constructor
+    public Rectangle(double width, double height) {
+        this.width = width;
+        this.height = height;
+    }
+
+    // Square shortcut
+    public Rectangle(double side) {
+        this(side, side);  // delegates to full constructor
+    }
+
+    public double area() { return width * height; }
+    public double perimeter() { return 2 * (width + height); }
+}
+
+Rectangle r = new Rectangle(4, 6);   // 4 × 6
+Rectangle s = new Rectangle(5);      // 5 × 5 square
+```
+
+## The Builder Pattern — For Complex Objects
+
+When a class has many optional fields, telescoping constructors get ugly. Use a Builder:
+
+```java
+public class HttpRequest {
+    private final String url;
+    private final String method;
+    private final String body;
+    private final int timeoutMs;
+    private final boolean followRedirects;
+
+    private HttpRequest(Builder builder) {
+        this.url = builder.url;
+        this.method = builder.method;
+        this.body = builder.body;
+        this.timeoutMs = builder.timeoutMs;
+        this.followRedirects = builder.followRedirects;
+    }
+
+    public static class Builder {
+        private final String url;       // required
+        private String method = "GET";  // optional with default
+        private String body = null;
+        private int timeoutMs = 5000;
+        private boolean followRedirects = true;
+
+        public Builder(String url) { this.url = url; }
+
+        public Builder method(String method) { this.method = method; return this; }
+        public Builder body(String body) { this.body = body; return this; }
+        public Builder timeout(int ms) { this.timeoutMs = ms; return this; }
+        public Builder noRedirects() { this.followRedirects = false; return this; }
+
+        public HttpRequest build() { return new HttpRequest(this); }
+    }
+}
+
+// Clean, readable construction
+HttpRequest req = new HttpRequest.Builder("https://api.example.com/users")
+    .method("POST")
+    .body("{\"name\": \"Rupa\"}")
+    .timeout(3000)
+    .build();
+```
+
+## Records — Immutable Data Classes (Java 16+)
+
+For simple data holders, `record` replaces the class + constructor + getters boilerplate:
+
+```java
+public record Point(double x, double y) {}
+
+// Automatically gets:
+// - constructor Point(double x, double y)
+// - getters x() and y()
+// - equals(), hashCode(), toString()
+
+Point p = new Point(3.0, 4.0);
+System.out.println(p.x());    // 3.0
+System.out.println(p);        // Point[x=3.0, y=4.0]
+```
+
+<Callout type="success" title="Use records for DTOs and value objects">
+  Records are perfect for data transfer objects, API responses, and any immutable data container. They replace enormous amounts of boilerplate.
+</Callout>
+
+## What's Next?
+
+**OOP #2** covers inheritance, interfaces, and polymorphism — how to build class hierarchies and write flexible code that works with many types at once.
