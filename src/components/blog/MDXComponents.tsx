@@ -1,14 +1,9 @@
+//src/components/blog/MDXComponents.tsx
 import type { MDXComponents as MDXComponentsType } from 'mdx/types'
-import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
+import { CodeEditor } from '@/components/editor/CodeEditor'
+import { JwtServiceEditor, TestAuthEditor } from '@/components/blog/post-components/JwtEditors'
 
-// Dynamically import Monaco editor (client-only)
-const CodeEditor = dynamic(
-  () => import('@/components/editor/CodeEditor').then((m) => m.CodeEditor),
-  { ssr: false }
-)
-
-// Callout component for MDX
 function Callout({
   type = 'info',
   title,
@@ -24,7 +19,6 @@ function Callout({
     error: 'bg-red-500/5 border-red-500/30 text-ink-2',
     success: 'bg-accent-3/5 border-accent-3/30 text-ink-2',
   }
-
   const icons = { info: 'ℹ', warning: '⚠', error: '✗', success: '✓' }
 
   return (
@@ -40,7 +34,6 @@ function Callout({
   )
 }
 
-// Step component for tutorials
 function Step({
   number,
   title,
@@ -63,7 +56,6 @@ function Step({
   )
 }
 
-// File tree display
 function FileTree({ children }: { children: React.ReactNode }) {
   return (
     <div className="not-prose bg-bg-2 border border-border rounded-xl p-5 my-6 font-mono text-sm text-ink-2 leading-relaxed">
@@ -73,7 +65,6 @@ function FileTree({ children }: { children: React.ReactNode }) {
 }
 
 export const MDXComponents: MDXComponentsType = {
-  // Override default elements
   h1: ({ children }) => (
     <h1 className="font-heading font-extrabold text-3xl mt-10 mb-4">{children}</h1>
   ),
@@ -87,7 +78,6 @@ export const MDXComponents: MDXComponentsType = {
       {children}
     </h3>
   ),
-  // Code block — static (rehype-highlight handles syntax)
   pre: ({ children, ...props }) => (
     <div className="group relative not-prose my-6">
       <pre
@@ -98,7 +88,6 @@ export const MDXComponents: MDXComponentsType = {
       </pre>
     </div>
   ),
-  // Custom components available in MDX files
   CodeEditor: ({
     code,
     language,
@@ -106,20 +95,22 @@ export const MDXComponents: MDXComponentsType = {
     title,
     height,
   }: {
-    code: string
+    code?: string
     language?: string
     runnable?: boolean
     title?: string
     height?: string
   }) => (
     <CodeEditor
-      initialCode={code}
+      initialCode={code ?? ''}
       language={language}
       runnable={runnable}
       title={title}
       height={height}
     />
   ),
+  JwtServiceEditor,
+  TestAuthEditor,
   Callout,
   Step,
   FileTree,

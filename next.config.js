@@ -11,6 +11,14 @@ const nextConfig = {
       { protocol: 'https', hostname: 'raw.githubusercontent.com' },
     ],
   },
+  webpack: (config) => {
+    // Fix Monaco Editor workers in production
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'monaco-editor': 'monaco-editor/esm/vs/editor/editor.api',
+    }
+    return config
+  },
   async headers() {
     return [
       {
