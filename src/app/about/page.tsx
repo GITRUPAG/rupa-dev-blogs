@@ -10,15 +10,31 @@ export const metadata: Metadata = {
 const skills = [
   { category: 'Frontend', items: ['React', 'Next.js', 'TypeScript', 'Tailwind CSS'] },
   { category: 'Backend', items: ['Spring Boot', 'Java', 'REST APIs', 'PostgreSQL'] },
-  { category: 'DevOps', items: ['Docker', 'AWS', 'GitHub Actions', 'Vercel'] },
+  { category: 'DevOps', items: ['Docker', 'Google Cloud', 'GitHub Actions', 'Vercel'] },
   { category: 'Tools', items: ['Git', 'Postman', 'IntelliJ', 'VS Code'] },
 ]
 
 const timeline = [
-  { year: '2024', title: 'Built & Launched SheCare', desc: 'Full-stack women\'s health app — React + Spring Boot + AWS' },
-  { year: '2024', title: 'Started Rupa.dev', desc: 'Began documenting every project so others can learn from real builds' },
-  { year: '2023', title: 'First Spring Boot API in Production', desc: 'REST API serving 5k+ daily requests. Learned the hard way about connection pooling.' },
-  { year: '2022', title: 'Switched to Full-Stack', desc: 'Was doing only frontend. Added Java + Spring Boot to the stack.' },
+  {
+    year: '2026',
+    title: 'Launched SheCare',
+    desc: 'Successfully launched SheCare — a full-stack women’s healthcare platform with real users and impactful features.'
+  },
+  {
+    year: '2025',
+    title: 'Built SheCare & Learned Spring Boot',
+    desc: 'Started building SheCare from scratch and mastered backend development using Spring Boot, APIs, and databases.'
+  },
+  {
+    year: '2024',
+    title: 'Started Java & Backend Journey',
+    desc: 'Moved beyond frontend and began learning Java, backend development, and system design fundamentals.'
+  },
+  {
+    year: '2023',
+    title: 'Started Coding (Frontend Basics)',
+    desc: 'Began coding journey with frontend basics — HTML, CSS, and JavaScript.'
+  },
 ]
 
 export default function AboutPage() {
@@ -34,14 +50,14 @@ export default function AboutPage() {
           <h1 className="font-heading font-extrabold text-4xl mb-2">Hey, I&apos;m Rupa</h1>
           <p className="text-accent font-mono text-sm mb-4">Full-Stack Developer · Builder · Blogger</p>
           <p className="text-ink-2 text-lg leading-relaxed max-w-xl">
-            I build real products and write about every step so you don&apos;t have to spend three hours on StackOverflow figuring out the same thing I already figured out.
-          </p>
+  I build real-world products that solve real problems — and document every step so you can learn faster, avoid mistakes, and actually ship your ideas.
+</p>
           <div className="flex flex-wrap gap-3 mt-6">
             {[
               { icon: Github, href: 'https://github.com/GITRUPAG', label: 'GitHub' },
               { icon: Linkedin, href: 'https://www.linkedin.com/in/g-rupa-799a43240/', label: 'LinkedIn' },
-              { icon: Twitter, href: 'https://twitter.com/rupa_dev', label: 'Twitter' },
-              { icon: Youtube, href: 'https://youtube.com/@shecare.fit', label: 'YouTube' },
+              { icon: Twitter, href: 'https://twitter.com/', label: 'Twitter' },
+              { icon: Youtube, href: 'https://youtube.com/@SheCareOfficial', label: 'YouTube' },
               { icon: Mail, href: 'mailto:rupag12004@gmail.com', label: 'Email' },
             ].map(({ icon: Icon, href, label }) => (
               <a
@@ -63,17 +79,38 @@ export default function AboutPage() {
       <section className="mb-16">
         <h2 className="font-heading font-bold text-2xl mb-5">My Story</h2>
         <div className="space-y-4 text-ink-2 leading-relaxed">
-          <p>
-            I started as a frontend developer who was scared of backends. Then I needed to build something real — a health app for my community — and I couldn&apos;t outsource the backend. So I learned Spring Boot the hard way.
-          </p>
-          <p>
-            That project became <strong className="text-ink">SheCare</strong> — a women&apos;s health tracking platform. Building it taught me more than any course. And writing about it helped others who were stuck on the same problems.
-          </p>
-          <p>
-            This blog is everything I wish existed when I was learning. Not just &quot;here&apos;s the theory&quot; — but here&apos;s the real code, here&apos;s why I made this decision, here&apos;s what broke and how I fixed it.
-          </p>
-        </div>
+  <p>
+    I didn’t start as a “full-stack developer.” I started confused — building frontend apps and wondering how real products actually work behind the scenes.
+  </p>
+
+  <p>
+    Everything changed when I decided to build something meaningful — a women’s safety and health platform. That project became <strong className="text-ink">SheCare</strong>.
+  </p>
+
+  <p>
+    I had no choice but to learn backend, APIs, databases, deployment — everything. Not from courses, but from breaking things, debugging for hours, and figuring it out step by step.
+  </p>
+
+  <p>
+    This blog exists for one reason: to share that journey. No fluff. No fake tutorials. Just real code, real problems, and real solutions.
+  </p>
+</div>
       </section>
+
+      <section className="mb-16">
+  <h2 className="font-heading font-bold text-2xl mb-5">What I’m Building</h2>
+  <div className="space-y-4 text-ink-2 leading-relaxed">
+    <p>
+      Right now, I’m focused on building <strong className="text-ink">SheCare</strong> — an AI-powered healthcare platform designed for women.
+    </p>
+    <p>
+      It combines period tracking, mental wellness, emergency alerts, and a safe community — all in one place.
+    </p>
+    <p>
+      My goal is simple: build technology that actually improves lives, not just adds another app to the store.
+    </p>
+  </div>
+</section>
 
       {/* Skills */}
       <section className="mb-16">
@@ -110,8 +147,10 @@ export default function AboutPage() {
       {/* CTA */}
       <section className="bg-surface border border-border rounded-2xl p-8 text-center">
         <h2 className="font-heading font-bold text-xl mb-2">Want to follow along?</h2>
-        <p className="text-ink-2 text-sm mb-5">Subscribe to get new posts, project updates, and the occasional rant about Java generics.</p>
-        <div className="flex flex-wrap justify-center gap-3">
+       <p className="text-ink-2 text-sm mb-5">
+  Follow my journey as I build real products, share mistakes, and turn ideas into shipped apps.
+</p>
+ <div className="flex flex-wrap justify-center gap-3">
           <Link href="/newsletter" className="px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 transition">
             Subscribe to Newsletter
           </Link>

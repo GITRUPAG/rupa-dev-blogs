@@ -24,11 +24,10 @@ const footerLinks = {
 }
 
 const socialLinks = [
-  { icon: Github, href: 'https://github.com/rupa', label: 'GitHub' },
-  { icon: Linkedin, href: 'https://linkedin.com/in/rupa', label: 'LinkedIn' },
-  { icon: Twitter, href: 'https://twitter.com/rupa_dev', label: 'Twitter' },
-  { icon: Youtube, href: 'https://youtube.com/@rupa_dev', label: 'YouTube' },
-  { icon: Rss, href: '/feed.xml', label: 'RSS' },
+  { icon: Github, href: 'https://github.com/GITRUPAG', label: 'GitHub' },
+  { icon: Linkedin, href: 'https://www.linkedin.com/in/g-rupa-799a43240/', label: 'LinkedIn' },
+  { icon: Twitter, href: 'https://twitter.com/', label: 'Twitter' },
+  { icon: Youtube, href: 'https://youtube.com/@SheCareOfficial', label: 'YouTube' }
 ]
 
 export function Footer() {
