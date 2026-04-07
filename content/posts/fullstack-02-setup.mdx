@@ -1,0 +1,231 @@
+---
+title: "Fullstack #2 — Setting Up Next.js & Spring Boot Side by Side"
+description: "Create both projects, run them together in development, configure your API base URL, and make your first successful fetch from Next.js to Spring Boot."
+date: "2025-03-03"
+tags: ["fullstack", "nextjs", "spring-boot", "setup", "beginner"]
+category: "fullstack"
+series: "nextjs-springboot-fullstack"
+seriesOrder: 2
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Project Structure
+
+We'll keep both projects in one repo folder:
+
+<FileTree>
+my-fullstack-app/
+├── frontend/          ← Next.js app
+│   ├── src/
+│   ├── .env.local
+│   └── package.json
+└── backend/           ← Spring Boot app
+    ├── src/
+    ├── pom.xml
+    └── application.properties
+</FileTree>
+
+This is the simplest setup to start with. Each project runs independently.
+
+## Step 1 — Create the Spring Boot Backend
+
+If you followed the Spring Boot series you already have this. If not, go to [start.spring.io](https://start.spring.io) and generate a project with:
+
+- **Dependencies**: Spring Web, Spring Data JPA, H2 Database, Lombok
+- **Java**: 21, **Spring Boot**: 3.x
+
+Create a simple products endpoint to test against:
+
+```java
+// backend/src/main/java/com/example/backend/ProductController.java
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    @GetMapping
+    public List<Map<String, Object>> getAll() {
+        return List.of(
+            Map.of("id", 1, "name", "Laptop", "price", 999.99),
+            Map.of("id", 2, "name", "Phone",  "price", 599.99),
+            Map.of("id", 3, "name", "Tablet", "price", 399.99)
+        );
+    }
+}
+```
+
+Run it:
+```bash
+cd backend
+./mvnw spring-boot:run
+```
+
+Test it works: open `http://localhost:8080/api/products` in your browser. You should see JSON.
+
+## Step 2 — Create the Next.js Frontend
+
+```bash
+cd my-fullstack-app
+npx create-next-app@latest frontend \
+  --typescript \
+  --tailwind \
+  --eslint \
+  --app \
+  --src-dir \
+  --import-alias "@/*"
+cd frontend
+npm run dev
+```
+
+Your frontend is now at `http://localhost:3000`.
+
+## Step 3 — Environment Variable for the API URL
+
+Never hardcode `http://localhost:8080` directly in your components. Store it in an environment variable so it's easy to change per environment.
+
+Create `frontend/.env.local`:
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+<Callout type="info" title="NEXT_PUBLIC_ prefix matters">
+  Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser. Variables without the prefix are only available in server-side Next.js code (Server Components, Route Handlers). Since we're calling our own backend from client components too, we use `NEXT_PUBLIC_`.
+</Callout>
+
+Add `.env.local` to `.gitignore` — it should already be there from `create-next-app`.
+
+## Step 4 — Create an API Client Helper
+
+Instead of writing `fetch('http://localhost:8080/api/...')` everywhere, create one helper:
+
+```typescript
+// frontend/src/lib/api.ts
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function apiFetch(path: string, options?: RequestInit) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+    throw new Error(error.message ?? `HTTP ${response.status}`);
+  }
+
+  // 204 No Content has no body
+  if (response.status === 204) return null;
+
+  return response.json();
+}
+```
+
+Now all your API calls go through one place. If you change the base URL, you change one line.
+
+## Step 5 — Your First Fetch
+
+```typescript
+// frontend/src/types/product.ts
+export interface Product {
+  id: number;
+  name: string;
+  price: number;
+}
+```
+
+```typescript
+// frontend/src/app/products/page.tsx
+import { apiFetch } from '@/lib/api';
+import { Product } from '@/types/product';
+
+export default async function ProductsPage() {
+  // This is a Server Component — fetch runs on the server
+  const products: Product[] = await apiFetch('/api/products');
+
+  return (
+    <main className="p-8">
+      <h1 className="text-2xl font-bold mb-6">Products</h1>
+      <ul className="space-y-3">
+        {products.map(product => (
+          <li key={product.id} className="border rounded-lg p-4 flex justify-between">
+            <span>{product.name}</span>
+            <span className="font-mono">${product.price}</span>
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+Visit `http://localhost:3000/products`. If Spring Boot is running, you'll see your products rendered.
+
+<Callout type="warning" title="Server Component fetch is different">
+  In Next.js App Router, page components are Server Components by default. The `fetch` runs on the **server** (Node.js), not in the browser. This means CORS doesn't apply here — server-to-server calls bypass CORS entirely. We'll cover when CORS matters in Post #5.
+</Callout>
+
+## Step 6 — Running Both at Once
+
+Open two terminals:
+
+```bash
+# Terminal 1 — backend
+cd backend && ./mvnw spring-boot:run
+
+# Terminal 2 — frontend
+cd frontend && npm run dev
+```
+
+Or install `concurrently` and add a root-level script:
+
+```json
+// my-fullstack-app/package.json
+{
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && ./mvnw spring-boot:run",
+    "dev:frontend": "cd frontend && npm run dev"
+  }
+}
+```
+
+```bash
+npm install -D concurrently
+npm run dev
+```
+
+## Step 7 — Confirm the Connection
+
+Your folder structure should now look like this:
+
+<FileTree>
+my-fullstack-app/
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   └── products/
+│   │   │       └── page.tsx
+│   │   ├── lib/
+│   │   │   └── api.ts
+│   │   └── types/
+│   │       └── product.ts
+│   └── .env.local
+└── backend/
+    └── src/main/java/com/example/backend/
+        └── ProductController.java
+</FileTree>
+
+Open `http://localhost:3000/products`. You should see the three products coming from your Spring Boot API.
+
+<Callout type="success" title="The connection is live">
+  Next.js fetching from Spring Boot is working. From here, every post builds on this foundation — adding loading states, error handling, forms, auth, and eventually deploying both.
+</Callout>
+
+## What's Next?
+
+**Fullstack #3** covers fetching data the right way — loading states, error boundaries, and the difference between Server Components and Client Components for data fetching.

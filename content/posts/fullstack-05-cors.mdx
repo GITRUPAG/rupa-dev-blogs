@@ -1,0 +1,232 @@
+---
+title: "Fullstack #5 — CORS Explained & Fixed Properly"
+description: "Why CORS errors happen, what the browser is actually doing, and the exact Spring Boot configuration to fix it for development and production — without just allowing everything."
+date: "2025-03-09"
+tags: ["fullstack", "cors", "spring-boot", "nextjs", "security"]
+category: "fullstack"
+series: "nextjs-springboot-fullstack"
+seriesOrder: 5
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## The Error That Confuses Every Beginner
+
+You've done everything right. Spring Boot returns data in Postman. But your browser shows:
+
+```
+Access to fetch at 'http://localhost:8080/api/products' from origin 
+'http://localhost:3000' has been blocked by CORS policy: No 
+'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+Your code isn't broken. This is the browser protecting you. Understanding *why* makes the fix obvious.
+
+## What CORS Is (And Isn't)
+
+CORS (Cross-Origin Resource Sharing) is a **browser security feature**. It prevents a random webpage from silently making requests to another domain using your cookies or credentials.
+
+**The key word is browser.** CORS does not exist in:
+- Postman
+- cURL
+- Server-to-server requests (Next.js Server Components calling your API)
+- Your Spring Boot code itself
+
+This is why Postman works but your browser doesn't. The browser is the gatekeeper, not the server.
+
+## What Is an "Origin"?
+
+An origin is the combination of **protocol + domain + port**. All three must match or it's cross-origin:
+
+```
+http://localhost:3000   ← origin of your Next.js app
+http://localhost:8080   ← origin of your Spring Boot API
+
+Different ports → different origins → CORS applies
+```
+
+More examples:
+```
+https://myapp.com       ≠  http://myapp.com       (different protocol)
+https://myapp.com       ≠  https://api.myapp.com  (different subdomain)
+https://myapp.com       ≠  https://myapp.com:8080 (different port)
+https://myapp.com:443   =  https://myapp.com       (443 is default for https)
+```
+
+## The Preflight Request
+
+For POST/PUT/DELETE or any request with custom headers (like `Authorization`), the browser sends a **preflight** — an `OPTIONS` request — before the real request:
+
+```
+Browser → OPTIONS /api/products HTTP/1.1
+           Origin: http://localhost:3000
+           Access-Control-Request-Method: POST
+           Access-Control-Request-Headers: content-type, authorization
+
+Spring Boot → 200 OK
+              Access-Control-Allow-Origin: http://localhost:3000
+              Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+              Access-Control-Allow-Headers: content-type, authorization
+
+Browser → (now sends the real POST request)
+```
+
+If Spring Boot doesn't respond to the preflight correctly, the browser blocks the real request and you see the CORS error.
+
+<Callout type="info" title="Simple requests skip the preflight">
+  A GET with no custom headers is a "simple request" — no preflight. That's why GETs sometimes work but POSTs with `Content-Type: application/json` fail. The `Content-Type` header triggers the preflight.
+</Callout>
+
+## Fixing It in Spring Boot
+
+### Option 1 — @CrossOrigin on the Controller (Quick but messy)
+
+```java
+@RestController
+@RequestMapping("/api/products")
+@CrossOrigin(origins = "http://localhost:3000")
+public class ProductController { ... }
+```
+
+Works, but you have to add it to every controller. Don't do this long-term.
+
+### Option 2 — Global CorsConfig (The Right Way)
+
+```java
+// backend/src/main/java/com/example/backend/config/CorsConfig.java
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+            .allowedOrigins(allowedOrigins.toArray(String[]::new))
+            .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+            .allowedHeaders(
+                "Content-Type",
+                "Authorization",
+                "X-Requested-With"
+            )
+            .allowCredentials(true)   // required for cookies (refresh token)
+            .maxAge(3600);            // cache preflight for 1 hour
+    }
+}
+```
+
+```properties
+# application-dev.properties
+app.cors.allowed-origins=http://localhost:3000
+
+# application-prod.properties
+app.cors.allowed-origins=https://myapp.vercel.app,https://myapp.com
+```
+
+<Callout type="warning" title="Never use allowedOrigins('*') with allowCredentials(true)">
+  These two settings are incompatible — Spring will throw an exception at startup. Wildcard origins disable credential support. If you need cookies (for JWT refresh tokens), you must list exact origins.
+</Callout>
+
+### Option 3 — CorsConfig with Spring Security
+
+If you have Spring Security (from the Spring Boot series), you must configure CORS *through* the `SecurityFilterChain`, not just `WebMvcConfigurer`. Otherwise Spring Security intercepts the preflight before your CORS config runs:
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.disable())
+            // ... rest of your security config
+            .build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type", "Authorization"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", config);
+        return source;
+    }
+}
+```
+
+<Callout type="error" title="Spring Security + CORS — use this approach">
+  If you're using Spring Security and your CORS still isn't working after configuring `WebMvcConfigurer`, it's almost always because Spring Security is blocking the preflight. Always wire CORS through `SecurityFilterChain` when Security is present.
+</Callout>
+
+## When CORS Doesn't Apply (Next.js Proxy)
+
+If you don't want to deal with CORS in development at all, configure Next.js to **proxy** API calls:
+
+```javascript
+// frontend/next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8080/api/:path*',
+      },
+    ];
+  },
+};
+
+module.exports = nextConfig;
+```
+
+Now your frontend calls `/api/products` (same origin) and Next.js forwards it to `http://localhost:8080/api/products`. The browser never sees a cross-origin request. No CORS errors.
+
+```typescript
+// Before (triggers CORS)
+const res = await fetch('http://localhost:8080/api/products');
+
+// After (no CORS, Next.js proxies it)
+const res = await fetch('/api/products');
+```
+
+<Callout type="info" title="Proxy only works in development">
+  The Next.js proxy runs the dev server. In production, your frontend is a static build on Vercel — there's no proxy. You'll still need proper CORS headers on Spring Boot for production. Use the proxy for easier local development, but configure CORS properly for prod.
+</Callout>
+
+## CORS Debugging Checklist
+
+When you get a CORS error, check in this order:
+
+<Step number={1} title="Is this a browser error or a server error?">
+  Open Postman and make the same request. If it works in Postman, the issue is CORS (browser). If it fails in Postman too, the API itself is broken — fix that first.
+</Step>
+
+<Step number={2} title="Check the Network tab in DevTools">
+  Look for the `OPTIONS` preflight request. Check what headers Spring Boot returned. You should see `Access-Control-Allow-Origin` in the response.
+</Step>
+
+<Step number={3} title="Are you using Spring Security?">
+  If yes, make sure CORS is configured through `SecurityFilterChain`, not just `WebMvcConfigurer`.
+</Step>
+
+<Step number={4} title="Is the allowed origin exact?">
+  `http://localhost:3000` ≠ `http://localhost:3000/`. A trailing slash makes them different. Copy the exact origin from the error message.
+</Step>
+
+<Step number={5} title="Restart Spring Boot after config changes">
+  CORS configuration changes require a server restart. The browser may also cache preflight results — open DevTools → Network → check "Disable cache" while debugging.
+</Step>
+
+## What's Next?
+
+**Fullstack #6** builds the full JWT login flow end to end — login form in Next.js, authentication in Spring Boot, storing the token, and sending it with every subsequent request.

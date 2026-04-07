@@ -1,0 +1,313 @@
+---
+title: "Fullstack #6 — JWT Authentication End to End"
+description: "Build the complete login flow: login form in Next.js, JWT issued by Spring Boot, token stored safely, and sent with every request. No hand-waving — the full implementation."
+date: "2025-03-11"
+tags: ["fullstack", "nextjs", "spring-boot", "jwt", "authentication"]
+category: "fullstack"
+series: "nextjs-springboot-fullstack"
+seriesOrder: 6
+featured: true
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## The Full Picture
+
+Here's what we're building — the complete JWT auth flow:
+
+```
+1. User fills in login form (Next.js)
+2. POST /api/auth/login → Spring Boot validates credentials
+3. Spring Boot returns { accessToken }
+4. Next.js stores the token (we'll cover where safely)
+5. Every subsequent request includes: Authorization: Bearer <token>
+6. Spring Boot validates the token and allows/rejects the request
+```
+
+## Spring Boot Side — The Auth Endpoints
+
+Make sure your Spring Boot project has the JWT setup from the Spring Boot series (JwtService, JwtAuthFilter, SecurityConfig). The two endpoints we need:
+
+```java
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MessageResponse register(@Valid @RequestBody RegisterRequest req) {
+        authService.register(req);
+        return new MessageResponse("Registered successfully");
+    }
+
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody LoginRequest req) {
+        return authService.login(req);
+    }
+}
+```
+
+```java
+public record LoginRequest(
+    @NotBlank String username,
+    @NotBlank String password
+) {}
+
+public record AuthResponse(String accessToken, String tokenType, long expiresIn) {}
+```
+
+```java
+// AuthService.login returns:
+return new AuthResponse(jwtToken, "Bearer", 900); // 900 seconds = 15 min
+```
+
+Test it in Postman:
+```
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{"username": "rupa", "password": "password123"}
+```
+
+You should get back a JWT in `accessToken`.
+
+## Where to Store the Token
+
+This is the most debated part of JWT in frontend. The honest answer:
+
+| Storage | XSS risk | CSRF risk | Notes |
+|---------|----------|-----------|-------|
+| `localStorage` | High | Low | JS can steal it if XSS happens |
+| `sessionStorage` | High | Low | Gone on tab close, same XSS risk |
+| `HttpOnly cookie` | Low | Medium | Browser never exposes to JS |
+| Memory (React state) | Low | Low | Gone on refresh — needs refresh token |
+
+For this series we'll store the access token **in memory (React context)** and use an **HttpOnly cookie** for the refresh token. This is the recommended production approach.
+
+For a simpler beginner start, we'll use `sessionStorage` — it's not perfect but better than `localStorage` and easy to swap later.
+
+<Callout type="warning" title="Never store JWTs in localStorage for production">
+  `localStorage` persists across browser sessions and is readable by any JavaScript on the page. If your app has an XSS vulnerability (even in a third-party library), an attacker can steal the token. For learning, it's fine. For production, use HttpOnly cookies or in-memory.
+</Callout>
+
+## Next.js Side — Auth Context
+
+```typescript
+// frontend/src/lib/auth.ts
+const TOKEN_KEY = 'access_token';
+
+export function saveToken(token: string) {
+  sessionStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY);
+}
+
+export function clearToken() {
+  sessionStorage.removeItem(TOKEN_KEY);
+}
+
+export function isLoggedIn(): boolean {
+  return getToken() !== null;
+}
+```
+
+```typescript
+// frontend/src/context/AuthContext.tsx
+'use client'
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getToken, saveToken, clearToken } from '@/lib/auth';
+import { apiFetch } from '@/lib/api';
+
+interface AuthContextType {
+  token: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Rehydrate from sessionStorage on mount
+    setToken(getToken());
+  }, []);
+
+  async function login(username: string, password: string) {
+    const data = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+
+    saveToken(data.accessToken);
+    setToken(data.accessToken);
+  }
+
+  function logout() {
+    clearToken();
+    setToken(null);
+  }
+
+  return (
+    <AuthContext.Provider value={{ token, login, logout, isAuthenticated: !!token }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
+}
+```
+
+Wrap your app:
+```typescript
+// frontend/src/app/layout.tsx
+import { AuthProvider } from '@/context/AuthContext';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+## Login Form
+
+```typescript
+// frontend/src/app/login/page.tsx
+'use client'
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+
+export default function LoginPage() {
+  const { login } = useAuth();
+  const router = useRouter();
+  const [form, setForm] = useState({ username: '', password: '' });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      await login(form.username, form.password);
+      router.push('/dashboard');
+    } catch (err) {
+      setError('Invalid username or password');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 p-8 border rounded-xl shadow-sm">
+        <h1 className="text-2xl font-bold">Sign In</h1>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+            {error}
+          </div>
+        )}
+
+        <input
+          type="text"
+          placeholder="Username"
+          value={form.username}
+          onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+          required
+          className="border rounded px-3 py-2 w-full"
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+          required
+          className="border rounded px-3 py-2 w-full"
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? 'Signing in...' : 'Sign In'}
+        </button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Sending the Token with Every Request
+
+Update `apiFetch` to automatically attach the token:
+
+```typescript
+// frontend/src/lib/api.ts
+import { getToken } from '@/lib/auth';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function apiFetch(path: string, options?: RequestInit) {
+  const token = getToken();
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
+    ...options,
+  });
+
+  if (response.status === 401) {
+    // Token expired or invalid — log out
+    clearToken();
+    window.location.href = '/login';
+    throw new Error('Session expired');
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+    throw new Error(error.message ?? `HTTP ${response.status}`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
+```
+
+Every `apiFetch` call now automatically includes the JWT if the user is logged in. Spring Boot's `JwtAuthFilter` validates it on every request.
+
+<Callout type="success" title="The auth loop is complete">
+  Login → get token → store token → attach to every request → Spring Boot validates → protected data returned. This is the same pattern used by every major web app.
+</Callout>
+
+## What's Next?
+
+**Fullstack #7** covers protected routes — redirecting unauthenticated users in Next.js App Router using middleware, and showing user-specific UI based on auth state.

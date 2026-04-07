@@ -1,0 +1,171 @@
+---
+title: "Fullstack #1 — How the Web Works: HTTP, APIs & JSON"
+description: "Before connecting anything, understand what actually happens when your app makes a request. HTTP methods, status codes, JSON, and the request-response cycle explained clearly."
+date: "2025-03-01"
+tags: ["fullstack", "http", "api", "json", "beginner"]
+category: "fullstack"
+series: "nextjs-springboot-fullstack"
+seriesOrder: 1
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What Actually Happens When You Click a Button
+
+When your Next.js app fetches a list of products from your Spring Boot backend, here's the full journey:
+
+```
+Browser (Next.js)
+  → sends HTTP request to http://localhost:8080/api/products
+  → Spring Boot receives it, queries the database
+  → Spring Boot sends back an HTTP response with JSON
+  → Next.js parses the JSON and renders the products
+```
+
+That's the entire loop. Everything in fullstack development is a variation of this pattern.
+
+## HTTP — The Language of the Web
+
+HTTP is how browsers and servers talk. Every request has:
+
+- A **method** — what kind of action you want
+- A **URL** — where to send it
+- **Headers** — metadata (content type, auth token, etc.)
+- A **body** — data you're sending (only for POST/PUT/PATCH)
+
+Every response has a **status code**, **headers**, and a **body**.
+
+### HTTP Methods
+
+| Method | Purpose | Has Body? |
+|--------|---------|-----------|
+| `GET` | Fetch data | No |
+| `POST` | Create something new | Yes |
+| `PUT` | Replace something entirely | Yes |
+| `PATCH` | Update part of something | Yes |
+| `DELETE` | Remove something | No |
+
+```
+GET    /api/products       → get all products
+GET    /api/products/42    → get product with id 42
+POST   /api/products       → create a new product
+PUT    /api/products/42    → replace product 42
+PATCH  /api/products/42    → update some fields of product 42
+DELETE /api/products/42    → delete product 42
+```
+
+This pattern is called **REST**. Your Spring Boot API is a REST API.
+
+### HTTP Status Codes
+
+| Range | Meaning | Common ones |
+|-------|---------|-------------|
+| 2xx | Success | 200 OK, 201 Created, 204 No Content |
+| 4xx | Client error | 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found |
+| 5xx | Server error | 500 Internal Server Error |
+
+<Callout type="info" title="The ones you'll see every day">
+  **200** — worked. **201** — created. **204** — worked, nothing to return. **400** — you sent bad data. **401** — not logged in. **403** — logged in but not allowed. **404** — doesn't exist. **500** — backend crashed.
+</Callout>
+
+## JSON — The Data Format
+
+JSON is how frontend and backend exchange data. It's just a string that looks like a JavaScript object:
+
+```json
+{
+  "id": 1,
+  "name": "Laptop",
+  "price": 999.99,
+  "inStock": true,
+  "tags": ["electronics", "computers"],
+  "specs": {
+    "ram": "16GB",
+    "storage": "512GB"
+  }
+}
+```
+
+JSON supports strings, numbers, booleans, arrays, objects, and null. That's it.
+
+**Spring Boot** converts Java objects to JSON automatically via Jackson:
+```java
+// This Java record...
+public record ProductResponse(Long id, String name, double price) {}
+
+// ...becomes this JSON automatically:
+// {"id":1,"name":"Laptop","price":999.99}
+```
+
+**Next.js** parses it with one call:
+```javascript
+const data = await response.json(); // string → JavaScript object
+```
+
+## The Full Request-Response Cycle
+
+<Step number={1} title="Next.js sends the request">
+  ```javascript
+  const response = await fetch('http://localhost:8080/api/products/1');
+  ```
+  This sends an HTTP GET with headers like `Host: localhost:8080` and `Accept: */*`.
+</Step>
+
+<Step number={2} title="Spring Boot routes it">
+  The dispatcher servlet reads `/api/products/1`, matches it to your `@GetMapping("/{id}")`, extracts `id = 1`, and calls your controller method.
+</Step>
+
+<Step number={3} title="Spring Boot builds the response">
+  Your service queries the DB, returns a `ProductResponse`. Jackson serialises it. Spring Boot responds with `200 OK` and `{"id":1,"name":"Laptop","price":999.99}`.
+</Step>
+
+<Step number={4} title="Next.js reads the response">
+  ```javascript
+  if (response.ok) {
+    const product = await response.json();
+    // { id: 1, name: "Laptop", price: 999.99 }
+  }
+  ```
+</Step>
+
+## Two Ports, Two Servers
+
+When developing locally, you're running **two separate servers**:
+
+```
+Next.js     → http://localhost:3000   (your UI)
+Spring Boot → http://localhost:8080   (your API)
+```
+
+They're completely separate processes. Next.js cannot import or call your Java code directly — it can only talk to it over HTTP, exactly like Postman would. This separation is what makes fullstack development feel complex at first.
+
+<Callout type="warning" title="Different ports = different origins">
+  Because they run on different ports, the browser treats them as different origins. This is exactly what causes CORS errors — we'll fix that properly in Post #5.
+</Callout>
+
+## HTTP Headers You'll Use
+
+```
+Content-Type: application/json       // you're sending JSON
+Accept: application/json             // you want JSON back
+Authorization: Bearer eyJhbGci...    // JWT auth token
+Origin: http://localhost:3000        // where the request is from (CORS)
+```
+
+Setting headers in `fetch`:
+```javascript
+const response = await fetch('http://localhost:8080/api/products', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  },
+  body: JSON.stringify({ name: 'Tablet', price: 399 }),
+});
+```
+
+## What's Next?
+
+In **Fullstack #2** we'll set up both projects side by side, wire them together in development, and make our first successful cross-origin fetch.

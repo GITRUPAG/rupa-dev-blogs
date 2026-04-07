@@ -1,0 +1,274 @@
+---
+title: "Fullstack #3 — Fetching Data: Loading States & Error Handling"
+description: "Server Components vs Client Components for data fetching, Suspense boundaries, error.tsx, and building a proper loading skeleton — all with Spring Boot as the API."
+date: "2025-03-05"
+tags: ["fullstack", "nextjs", "fetch", "loading", "error-handling"]
+category: "fullstack"
+series: "nextjs-springboot-fullstack"
+seriesOrder: 3
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Two Ways to Fetch in Next.js App Router
+
+Before writing any code, you need to pick the right approach for your situation:
+
+| Approach | Runs on | Best for |
+|----------|---------|---------|
+| **Server Component** (async/await) | Server | Page data, SEO-important content, no user interactions needed |
+| **Client Component** (useEffect / SWR) | Browser | Data that changes based on user input, real-time, user-specific |
+
+Start with Server Components — they're simpler and faster. Only drop to Client Components when you need interactivity.
+
+## Server Component Fetch — The Simple Path
+
+```typescript
+// app/products/page.tsx
+import { apiFetch } from '@/lib/api';
+import { Product } from '@/types/product';
+
+export default async function ProductsPage() {
+  const products: Product[] = await apiFetch('/api/products');
+
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Products</h1>
+      <div className="grid gap-4">
+        {products.map(p => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+Clean. No `useEffect`, no `useState`, no loading spinner needed — Next.js streams the response once the data is ready.
+
+## Adding a Loading State with loading.tsx
+
+Create a `loading.tsx` file next to your `page.tsx`. Next.js shows it automatically while the page fetches:
+
+```typescript
+// app/products/loading.tsx
+export default function ProductsLoading() {
+  return (
+    <div className="p-8">
+      <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-4" />
+      <div className="grid gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="border rounded-lg p-4 h-16 bg-gray-100 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+This is a skeleton screen — a placeholder shaped like the real content. Much better UX than a spinner.
+
+## Error Handling with error.tsx
+
+Create an `error.tsx` file to catch any errors thrown during fetch:
+
+```typescript
+// app/products/error.tsx
+'use client' // error boundaries must be Client Components
+
+export default function ProductsError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  return (
+    <div className="p-8 text-center">
+      <h2 className="text-xl font-semibold text-red-600 mb-2">Failed to load products</h2>
+      <p className="text-gray-500 mb-4">{error.message}</p>
+      <button
+        onClick={reset}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+```
+
+Now if your Spring Boot API returns an error or is unreachable, the user sees a friendly message with a retry button instead of a crash.
+
+<Callout type="info" title="loading.tsx and error.tsx are automatic">
+  Place them in the same folder as `page.tsx` and Next.js handles everything. No wrapping components, no manual try/catch in the page. It just works.
+</Callout>
+
+## Client Component Fetch — When You Need It
+
+Some data depends on user interactions — search filters, pagination controls, user-specific content after login. For those, use a Client Component:
+
+```typescript
+// components/ProductSearch.tsx
+'use client'
+
+import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api';
+import { Product } from '@/types/product';
+
+export function ProductSearch() {
+  const [query, setQuery] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setProducts([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function search() {
+      setLoading(true);
+      setError(null);
+      try {
+        const results = await apiFetch(`/api/products/search?q=${encodeURIComponent(query)}`);
+        if (!cancelled) setProducts(results);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Search failed');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    const timeout = setTimeout(search, 300); // debounce
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [query]);
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Search products..."
+        className="border rounded px-3 py-2 w-full mb-4"
+      />
+
+      {loading && <p className="text-gray-400">Searching...</p>}
+      {error  && <p className="text-red-500">{error}</p>}
+
+      <ul className="space-y-2">
+        {products.map(p => (
+          <li key={p.id} className="border rounded p-3">{p.name} — ${p.price}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+<Callout type="warning" title="The cancelled flag prevents stale state">
+  If a user types fast, multiple requests fire. The `cancelled` flag ensures only the latest response updates state. Without it, an older slow request could overwrite a newer fast one.
+</Callout>
+
+## Using SWR for Client-Side Fetching (Recommended)
+
+Instead of manual `useEffect`, use [SWR](https://swr.vercel.app) — it handles caching, deduplication, revalidation, and loading states for you:
+
+```bash
+npm install swr
+```
+
+```typescript
+// lib/fetcher.ts
+export const fetcher = (url: string) =>
+  fetch(url).then(res => {
+    if (!res.ok) throw new Error('Failed to fetch');
+    return res.json();
+  });
+```
+
+```typescript
+// components/UserOrders.tsx
+'use client'
+
+import useSWR from 'swr';
+import { fetcher } from '@/lib/fetcher';
+
+export function UserOrders({ userId }: { userId: number }) {
+  const { data, error, isLoading } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/orders?userId=${userId}`,
+    fetcher
+  );
+
+  if (isLoading) return <p>Loading orders...</p>;
+  if (error)     return <p>Failed to load orders.</p>;
+
+  return (
+    <ul>
+      {data.map((order: any) => (
+        <li key={order.id}>{order.product} — {order.status}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+SWR automatically refetches when the user focuses the window, retries on error, and deduplicates identical requests. Much less code than `useEffect`.
+
+## Parallel Fetching in Server Components
+
+If a page needs data from multiple endpoints, fetch them in parallel — never in sequence:
+
+```typescript
+// app/dashboard/page.tsx
+
+// ❌ Sequential — slow (waits for each before starting the next)
+const products = await apiFetch('/api/products');
+const orders   = await apiFetch('/api/orders');
+const users    = await apiFetch('/api/users');
+
+// ✅ Parallel — all three start at the same time
+const [products, orders, users] = await Promise.all([
+  apiFetch('/api/products'),
+  apiFetch('/api/orders'),
+  apiFetch('/api/users'),
+]);
+```
+
+## The Spring Boot Side — What to Return on Errors
+
+For errors to be handled well on the frontend, Spring Boot needs to return JSON error bodies (not HTML). Make sure your `GlobalExceptionHandler` from the Spring Boot series is in place:
+
+```java
+@ExceptionHandler(ResourceNotFoundException.class)
+public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
+    return ResponseEntity
+        .status(HttpStatus.NOT_FOUND)
+        .body(ErrorResponse.of(HttpStatus.NOT_FOUND, ex.getMessage()));
+}
+```
+
+And your `apiFetch` helper reads it:
+```typescript
+if (!response.ok) {
+  const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+  throw new Error(error.message ?? `HTTP ${response.status}`);
+}
+```
+
+<Callout type="success" title="The pattern is now solid">
+  Server Components for page data. `loading.tsx` for skeletons. `error.tsx` for error recovery. Client Components + SWR for interactive/real-time data. Parallel fetching for dashboards.
+</Callout>
+
+## What's Next?
+
+**Fullstack #4** covers sending data back — forms that POST to Spring Boot, handling PUT and DELETE, and managing optimistic updates.

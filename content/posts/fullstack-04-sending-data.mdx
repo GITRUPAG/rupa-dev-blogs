@@ -1,0 +1,349 @@
+---
+title: "Fullstack #4 — Sending Data: Forms, POST, PUT & DELETE"
+description: "Build forms that talk to Spring Boot. Create, update, and delete resources from Next.js using controlled forms, Server Actions, and proper feedback patterns."
+date: "2025-03-07"
+tags: ["fullstack", "nextjs", "forms", "post", "put", "delete"]
+category: "fullstack"
+series: "nextjs-springboot-fullstack"
+seriesOrder: 4
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## The Spring Boot Side First
+
+Make sure your controller handles all the methods:
+
+```java
+@RestController
+@RequestMapping("/api/products")
+@RequiredArgsConstructor
+public class ProductController {
+
+    private final ProductService productService;
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProductResponse create(@Valid @RequestBody CreateProductRequest req) {
+        return productService.create(req);
+    }
+
+    @PutMapping("/{id}")
+    public ProductResponse update(@PathVariable Long id,
+                                  @Valid @RequestBody UpdateProductRequest req) {
+        return productService.update(id, req);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        productService.delete(id);
+    }
+}
+```
+
+```java
+public record CreateProductRequest(
+    @NotBlank String name,
+    @Positive double price,
+    @Min(0) int stock
+) {}
+```
+
+## POST — Creating a Resource
+
+A controlled form in a Client Component that POSTs to Spring Boot:
+
+```typescript
+// components/CreateProductForm.tsx
+'use client'
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
+
+export function CreateProductForm() {
+  const router = useRouter();
+  const [form, setForm] = useState({ name: '', price: '', stock: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      await apiFetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: form.name,
+          price: parseFloat(form.price),
+          stock: parseInt(form.stock),
+        }),
+      });
+
+      router.push('/products');      // navigate on success
+      router.refresh();              // revalidate server data
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create product');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Name</label>
+        <input
+          name="name"
+          value={form.name}
+          onChange={handleChange}
+          required
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Price</label>
+        <input
+          name="price"
+          type="number"
+          step="0.01"
+          min="0"
+          value={form.price}
+          onChange={handleChange}
+          required
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Stock</label>
+        <input
+          name="stock"
+          type="number"
+          min="0"
+          value={form.stock}
+          onChange={handleChange}
+          required
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+      >
+        {loading ? 'Creating...' : 'Create Product'}
+      </button>
+    </form>
+  );
+}
+```
+
+<Callout type="info" title="router.refresh() is important">
+  After a successful mutation, call `router.refresh()` to tell Next.js to re-fetch Server Component data on the current route. Without it, your list page will still show the old data until a full page reload.
+</Callout>
+
+## PUT — Updating a Resource
+
+Pre-fill the form with existing data, then send a PUT:
+
+```typescript
+// components/EditProductForm.tsx
+'use client'
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
+import { Product } from '@/types/product';
+
+export function EditProductForm({ product }: { product: Product }) {
+  const router = useRouter();
+  const [form, setForm] = useState({
+    name:  product.name,
+    price: String(product.price),
+    stock: String(product.stock),
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      await apiFetch(`/api/products/${product.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name:  form.name,
+          price: parseFloat(form.price),
+          stock: parseInt(form.stock),
+        }),
+      });
+      router.push('/products');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+      {error && <p className="text-red-600">{error}</p>}
+
+      <input name="name"  value={form.name}  onChange={handleChange} className="border rounded px-3 py-2 w-full" />
+      <input name="price" value={form.price} onChange={handleChange} type="number" step="0.01" className="border rounded px-3 py-2 w-full" />
+      <input name="stock" value={form.stock} onChange={handleChange} type="number" className="border rounded px-3 py-2 w-full" />
+
+      <button type="submit" disabled={loading} className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50">
+        {loading ? 'Saving...' : 'Save Changes'}
+      </button>
+    </form>
+  );
+}
+```
+
+## DELETE — Removing a Resource
+
+A simple delete button with a confirmation:
+
+```typescript
+// components/DeleteProductButton.tsx
+'use client'
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
+
+export function DeleteProductButton({ productId }: { productId: number }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  async function handleDelete() {
+    if (!confirm('Delete this product?')) return;
+
+    setLoading(true);
+    try {
+      await apiFetch(`/api/products/${productId}`, { method: 'DELETE' });
+      router.push('/products');
+      router.refresh();
+    } catch (err) {
+      alert('Failed to delete. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={loading}
+      className="bg-red-600 text-white px-3 py-1.5 rounded text-sm hover:bg-red-700 disabled:opacity-50"
+    >
+      {loading ? 'Deleting...' : 'Delete'}
+    </button>
+  );
+}
+```
+
+## Server Actions — The Next.js 14+ Way
+
+Instead of `fetch` in Client Components, you can use **Server Actions** — async functions that run on the server, called directly from a form:
+
+```typescript
+// app/products/new/actions.ts
+'use server'
+
+import { apiFetch } from '@/lib/api';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+export async function createProduct(formData: FormData) {
+  const name  = formData.get('name') as string;
+  const price = parseFloat(formData.get('price') as string);
+  const stock = parseInt(formData.get('stock') as string);
+
+  await apiFetch('/api/products', {
+    method: 'POST',
+    body: JSON.stringify({ name, price, stock }),
+  });
+
+  revalidatePath('/products');  // invalidate the cached product list
+  redirect('/products');
+}
+```
+
+```typescript
+// app/products/new/page.tsx
+import { createProduct } from './actions';
+
+export default function NewProductPage() {
+  return (
+    <form action={createProduct} className="space-y-4 max-w-md p-8">
+      <input name="name"  placeholder="Product name"  required className="border rounded px-3 py-2 w-full" />
+      <input name="price" type="number" step="0.01" placeholder="Price" required className="border rounded px-3 py-2 w-full" />
+      <input name="stock" type="number" placeholder="Stock" required className="border rounded px-3 py-2 w-full" />
+      <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+        Create
+      </button>
+    </form>
+  );
+}
+```
+
+<Callout type="info" title="Server Actions vs Client fetch — which to use?">
+  Server Actions are great for simple forms where you just need to submit and redirect. Client Component fetch is better when you need real-time feedback, optimistic updates, or complex form validation as the user types.
+</Callout>
+
+## Handling Validation Errors from Spring Boot
+
+When Spring Boot returns a 400 with field-level errors, surface them in the form:
+
+```typescript
+// In your apiFetch helper, update the error shape
+if (!response.ok) {
+  const body = await response.json().catch(() => ({}));
+  const err = new Error(body.message ?? `HTTP ${response.status}`);
+  (err as any).status = response.status;
+  (err as any).fields = body.fields; // Spring Boot validation errors
+  throw err;
+}
+```
+
+```typescript
+// In your form
+} catch (err: any) {
+  if (err.status === 400 && err.fields) {
+    setFieldErrors(err.fields); // { name: "Name is required", price: "Must be positive" }
+  } else {
+    setError(err.message);
+  }
+}
+```
+
+## What's Next?
+
+**Fullstack #5** tackles CORS — what it is, why it only shows up in certain situations, and how to configure Spring Boot to allow your Next.js frontend properly.
