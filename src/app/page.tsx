@@ -10,7 +10,7 @@ import { LearningPathPreview } from '@/components/blog/LearningPathPreview'
 import { formatDate, getCategoryConfig } from '@/lib/utils'
 
 export const metadata: Metadata = {
-  title: 'Rupa.dev — Full-Stack Developer Blog',
+  title: 'devdairy — Developer Blog',
   description: 'Real projects. Real code. Full-stack tutorials on React, Spring Boot, and more.',
 }
 
