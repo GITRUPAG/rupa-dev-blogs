@@ -31,8 +31,8 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://devdairy.online'),
   title: {
-    default: 'Rupa.dev — Full-Stack Developer Blog',
-    template: '%s | Rupa.dev',
+    default: 'devdairy — Developer Blog',
+    template: '%s | devdairy',
   },
   description:
     'Real projects. Real code. Full-stack tutorials on React, Spring Boot, PostgreSQL, and more — written by Rupa.',
@@ -43,8 +43,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://devdairy.online',
-    siteName: 'Rupa.dev',
-    title: 'Rupa.dev — Full-Stack Developer Blog',
+    siteName: 'devdairy',
+    title: 'devdairy — Developer Blog',
     description: 'Real projects. Real code. Real stories.',
     images: [
       {
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Rupa.dev',
+    title: 'devdairy',
     description: 'Real projects. Real code. Real stories.',
     creator: '@rupa_dev',
     images: ['/og-image.png'],
