@@ -1,0 +1,256 @@
+---
+title: "Python Advanced #1 — Decorators & Generators"
+description: "Write your own decorators for caching, timing, and retry logic. Build memory-efficient generator pipelines. These are the patterns that appear in every professional Python codebase."
+date: "2025-04-17"
+tags: ["python", "advanced", "decorators", "generators"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 9
+featured: true
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Decorators
+
+A decorator is a function that wraps another function — adding behaviour before, after, or around it without modifying the original:
+
+<DecoratorsEditor />
+
+### Caching with `@functools.cache`
+
+```python
+import functools
+
+# Without cache — O(2^n) — extremely slow for large n
+def fib_slow(n):
+    if n <= 1: return n
+    return fib_slow(n-1) + fib_slow(n-2)
+
+# With cache — O(n) — each value computed once
+@functools.cache
+def fib(n: int) -> int:
+    if n <= 1: return n
+    return fib(n-1) + fib(n-2)
+
+print(fib(50))    # 12586269025 — instant
+print(fib.cache_info())   # CacheInfo(hits=48, misses=51, maxsize=None, currsize=51)
+
+# lru_cache — limited size (memory-bounded)
+@functools.lru_cache(maxsize=128)
+def expensive_lookup(key: str) -> dict:
+    # ... simulate DB query ...
+    return {"key": key, "value": hash(key)}
+```
+
+### Class-Based Decorator
+
+```python
+import functools
+from typing import Callable, TypeVar, Any
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+class RateLimit:
+    """Allow at most `calls` invocations per `period` seconds"""
+    def __init__(self, calls: int, period: float):
+        self.calls  = calls
+        self.period = period
+        self._timestamps: list[float] = []
+
+    def __call__(self, func: F) -> F:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            import time
+            now = time.time()
+            self._timestamps = [t for t in self._timestamps if now - t < self.period]
+            if len(self._timestamps) >= self.calls:
+                raise RuntimeError(f"Rate limit: max {self.calls} calls per {self.period}s")
+            self._timestamps.append(now)
+            return func(*args, **kwargs)
+        return wrapper  # type: ignore
+
+@RateLimit(calls=3, period=1.0)
+def send_email(to: str, subject: str) -> None:
+    print(f"Email sent to {to}: {subject}")
+
+send_email("alice@example.com", "Hello")
+send_email("bob@example.com", "Hello")
+send_email("charlie@example.com", "Hello")
+# send_email("dave@example.com", "Hello")  # ❌ RuntimeError: Rate limit
+```
+
+### Stacking Decorators
+
+```python
+import functools, time
+
+def log(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"→ {func.__name__}({args}, {kwargs})")
+        result = func(*args, **kwargs)
+        print(f"← {func.__name__} returned {result!r}")
+        return result
+    return wrapper
+
+def validate_positive(func):
+    @functools.wraps(func)
+    def wrapper(n, *args, **kwargs):
+        if n <= 0:
+            raise ValueError(f"Expected positive, got {n}")
+        return func(n, *args, **kwargs)
+    return wrapper
+
+# Decorators are applied bottom-up
+@log
+@validate_positive
+def square(n: int) -> int:
+    return n * n
+
+square(4)
+# → square((4,), {})
+# ← square returned 16
+```
+
+## Generators
+
+Generators produce values lazily — one at a time on demand. No list is built in memory:
+
+<GeneratorsEditor />
+
+### Generator Pipelines
+
+```python
+# Process a large CSV without loading it into memory
+def read_csv(filename: str):
+    with open(filename) as f:
+        for line in f:
+            yield line.strip()
+
+def parse_row(lines):
+    headers = None
+    for line in lines:
+        if headers is None:
+            headers = line.split(",")
+        else:
+            yield dict(zip(headers, line.split(",")))
+
+def filter_active(rows):
+    for row in rows:
+        if row.get("active") == "true":
+            yield row
+
+def to_uppercase_names(rows):
+    for row in rows:
+        row["name"] = row["name"].upper()
+        yield row
+
+# Pipeline — only one row in memory at a time, regardless of file size
+# pipeline = to_uppercase_names(filter_active(parse_row(read_csv("users.csv"))))
+# for user in pipeline:
+#     print(user)
+```
+
+### `send()` — Two-Way Generators
+
+```python
+def running_average():
+    total = 0
+    count = 0
+    average = None
+    while True:
+        value = yield average    # yield sends out, receives in
+        if value is None:
+            break
+        total += value
+        count += 1
+        average = total / count
+
+gen = running_average()
+next(gen)               # prime the generator (advance to first yield)
+
+gen.send(10)            # average = 10.0
+gen.send(20)            # average = 15.0
+result = gen.send(30)   # average = 20.0
+print(result)           # 20.0
+```
+
+### `yield from` — Delegate to Sub-Generators
+
+```python
+def flatten(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten(item)  # delegate to recursive call
+        else:
+            yield item
+
+data = [1, [2, 3], [4, [5, 6]], 7]
+print(list(flatten(data)))  # [1, 2, 3, 4, 5, 6, 7]
+```
+
+## Comprehensions — All Four Flavours
+
+<ComprehensionsEditor />
+
+### When to Use Each
+
+```python
+data = range(1, 11)
+
+# List — when you need a concrete list to iterate multiple times
+squares_list = [n**2 for n in data]
+
+# Generator expression — when you iterate once and don't need to store
+total = sum(n**2 for n in data)        # no [] needed inside sum()
+big   = any(n > 50 for n in squares_list)
+
+# Set — when you want unique results
+words = ["the", "cat", "sat", "on", "the", "mat"]
+unique_lengths = {len(w) for w in words}   # {3, 2}
+
+# Dict — when you need a key-value mapping
+length_map = {w: len(w) for w in words}
+```
+
+<Callout type="info" title="Generator expressions vs list comprehensions">
+  Use a **generator expression** (`(x for x in ...)`) when you're iterating once — it uses O(1) memory. Use a **list comprehension** when you need to index, iterate multiple times, or get `len()`. When in doubt for large data: generator.
+</Callout>
+
+## Type Annotations for Advanced Patterns
+
+```python
+from typing import Generator, Iterator, Callable, TypeVar
+from collections.abc import Generator as GenType
+
+T = TypeVar("T")
+
+def countdown(n: int) -> Generator[int, None, None]:
+    """Yields int, accepts None via send(), returns None"""
+    while n > 0:
+        yield n
+        n -= 1
+
+def take(n: int, it: Iterator[T]) -> list[T]:
+    """Take first n items from any iterator"""
+    return [next(it) for _ in range(n)]
+
+def compose(*funcs: Callable) -> Callable:
+    """Compose functions right-to-left: compose(f, g)(x) = f(g(x))"""
+    import functools
+    def composed(x):
+        return functools.reduce(lambda v, f: f(v), reversed(funcs), x)
+    return composed
+
+double  = lambda x: x * 2
+add_one = lambda x: x + 1
+
+double_then_add = compose(add_one, double)
+print(double_then_add(5))   # (5 * 2) + 1 = 11
+```
+
+## What's Next?
+
+**Python Advanced #2** covers typing in depth, `dataclasses` vs Pydantic, and async Python — `async`/`await`, `asyncio`, and writing concurrent code.

@@ -1,0 +1,271 @@
+---
+title: "Python Advanced #2 — Type Hints, Pydantic & Async Python"
+description: "Practical type annotations, runtime validation with Pydantic, and writing concurrent code with async/await and asyncio — the foundation for FastAPI and modern Python backends."
+date: "2025-04-19"
+tags: ["python", "advanced", "typing", "pydantic", "async", "asyncio"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 10
+featured: true
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Type Hints in Depth
+
+Type hints don't affect runtime — they're for IDEs and tools like `mypy`. But they make code dramatically more readable and catch bugs early.
+
+```python
+# Basic types
+name: str = "Alice"
+age: int = 25
+score: float = 9.8
+flag: bool = True
+
+# Collections
+from typing import Optional
+
+names: list[str] = ["Alice", "Bob"]
+scores: dict[str, int] = {"Alice": 95}
+coords: tuple[float, float] = (3.14, 2.71)
+unique: set[int] = {1, 2, 3}
+
+# Optional — can be None
+def find(id: int) -> Optional[str]:   # same as str | None
+    ...
+
+# Union types (Python 3.10+ syntax)
+def process(value: int | str | None) -> str:
+    match value:
+        case int(n):    return f"int: {n}"
+        case str(s):    return f"str: {s}"
+        case None:      return "nothing"
+```
+
+### Generic Types
+
+```python
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+K = TypeVar("K")
+V = TypeVar("V")
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+    def pop(self) -> T:
+        if not self._items:
+            raise IndexError("Stack is empty")
+        return self._items.pop()
+
+    def peek(self) -> T:
+        return self._items[-1]
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+stack: Stack[int] = Stack()
+stack.push(1)
+stack.push(2)
+print(stack.pop())   # 2
+```
+
+### TypedDict — Type Hints for Dicts
+
+```python
+from typing import TypedDict, Required, NotRequired
+
+class UserDict(TypedDict):
+    id:    int
+    name:  str
+    email: str
+    role:  NotRequired[str]   # optional key
+
+def greet_user(user: UserDict) -> str:
+    return f"Hello, {user['name']}!"
+
+user: UserDict = {"id": 1, "name": "Alice", "email": "alice@dev.io"}
+print(greet_user(user))
+```
+
+## Pydantic — Runtime Validation
+
+Pydantic validates data at runtime, not just for type checkers. It's the foundation of FastAPI:
+
+```bash
+pip install pydantic
+```
+
+```python
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Optional
+from datetime import datetime
+
+class Address(BaseModel):
+    street: str
+    city:   str
+    country: str = "India"
+
+class User(BaseModel):
+    id:         int
+    name:       str = Field(min_length=2, max_length=50)
+    email:      str = Field(pattern=r"^[\w.-]+@[\w.-]+\.\w+$")
+    age:        int = Field(ge=0, le=150)
+    role:       str = Field(default="user")
+    address:    Optional[Address] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Name cannot be blank or whitespace")
+        return v.strip().title()
+
+    @model_validator(mode="after")
+    def admin_must_have_email(self) -> "User":
+        if self.role == "admin" and not self.email:
+            raise ValueError("Admin users must have an email")
+        return self
+
+# Valid
+user = User(id=1, name="alice smith", email="alice@dev.io", age=28)
+print(user)
+print(user.name)        # Alice Smith (normalised by validator)
+print(user.model_dump())  # dict
+
+# Invalid — raises ValidationError with clear messages
+# User(id=1, name="", email="not-an-email", age=200)
+```
+
+### Pydantic for API Request Parsing
+
+```python
+from pydantic import BaseModel
+
+class CreateProductRequest(BaseModel):
+    name:  str   = Field(min_length=2, max_length=100)
+    price: float = Field(gt=0)
+    stock: int   = Field(ge=0, default=0)
+    tags:  list[str] = Field(default_factory=list)
+
+# Parse from dict (e.g. JSON body)
+raw = {"name": "Laptop", "price": 999.99, "stock": 10}
+req = CreateProductRequest.model_validate(raw)
+print(req.name)   # Laptop
+print(req.tags)   # []
+
+# To JSON
+print(req.model_dump_json(indent=2))
+```
+
+## Async Python — `async`/`await`
+
+Async lets you write concurrent code without threads. While one task waits for I/O, others run:
+
+```python
+import asyncio
+
+async def fetch_data(name: str, delay: float) -> str:
+    """Simulate a slow I/O operation"""
+    print(f"  Start: {name}")
+    await asyncio.sleep(delay)   # non-blocking wait
+    print(f"  Done:  {name}")
+    return f"{name} data"
+
+async def main():
+    # Sequential — total time = 1 + 2 + 1.5 = 4.5s
+    # r1 = await fetch_data("users", 1)
+    # r2 = await fetch_data("products", 2)
+    # r3 = await fetch_data("orders", 1.5)
+
+    # Concurrent — total time = max(1, 2, 1.5) = 2s
+    r1, r2, r3 = await asyncio.gather(
+        fetch_data("users",    1.0),
+        fetch_data("products", 2.0),
+        fetch_data("orders",   1.5),
+    )
+    print(r1, r2, r3)
+
+asyncio.run(main())
+```
+
+### Async HTTP with `httpx`
+
+```bash
+pip install httpx
+```
+
+```python
+import asyncio
+import httpx
+
+async def fetch_user(client: httpx.AsyncClient, user_id: int) -> dict:
+    response = await client.get(f"https://jsonplaceholder.typicode.com/users/{user_id}")
+    response.raise_for_status()
+    return response.json()
+
+async def fetch_all_users(user_ids: list[int]) -> list[dict]:
+    async with httpx.AsyncClient() as client:
+        tasks = [fetch_user(client, uid) for uid in user_ids]
+        return await asyncio.gather(*tasks)
+
+async def main():
+    users = await fetch_all_users([1, 2, 3, 4, 5])
+    for user in users:
+        print(f"{user['id']:2d}. {user['name']}")
+
+asyncio.run(main())
+```
+
+### Async Context Managers and Iterators
+
+```python
+import asyncio
+
+class AsyncDatabase:
+    async def __aenter__(self):
+        print("Connecting to DB...")
+        await asyncio.sleep(0.1)  # simulate connection
+        return self
+
+    async def __aexit__(self, *args):
+        print("Closing DB connection")
+
+    async def query(self, sql: str):
+        await asyncio.sleep(0.05)  # simulate query
+        return [{"id": 1}, {"id": 2}]
+
+async def main():
+    async with AsyncDatabase() as db:
+        rows = await db.query("SELECT * FROM users")
+        print(rows)
+
+asyncio.run(main())
+
+# Async generator
+async def stream_records():
+    for i in range(5):
+        await asyncio.sleep(0.1)
+        yield {"id": i, "value": i * 10}
+
+async def consume():
+    async for record in stream_records():
+        print(record)
+
+asyncio.run(consume())
+```
+
+<Callout type="info" title="When to use async">
+  Use async when your code spends time **waiting for I/O** — HTTP requests, database queries, file reads. For CPU-heavy work (number crunching, image processing), async doesn't help — use `multiprocessing` instead.
+</Callout>
+
+## What's Next?
+
+**Python Automation #1** — using Python for real-world automation: file system operations, working with CSVs and JSON, sending HTTP requests, and building useful command-line scripts.

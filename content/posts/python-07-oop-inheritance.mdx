@@ -1,0 +1,236 @@
+---
+title: "Python OOP #2 — Inheritance, ABCs & Duck Typing"
+description: "Single and multiple inheritance, abstract base classes, mixins, Python's Protocol type, and why duck typing changes how you think about interfaces."
+date: "2025-04-13"
+tags: ["python", "oop", "inheritance", "abc", "protocols"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 7
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Inheritance
+
+<InheritanceEditor />
+
+### Calling the Parent
+
+```python
+class Vehicle:
+    def __init__(self, make: str, model: str, year: int):
+        self.make  = make
+        self.model = model
+        self.year  = year
+
+    def describe(self) -> str:
+        return f"{self.year} {self.make} {self.model}"
+
+class ElectricCar(Vehicle):
+    def __init__(self, make: str, model: str, year: int, range_km: int):
+        super().__init__(make, model, year)   # call parent __init__
+        self.range_km = range_km
+
+    def describe(self) -> str:
+        base = super().describe()             # extend parent method
+        return f"{base} (EV, {self.range_km}km range)"
+
+tesla = ElectricCar("Tesla", "Model 3", 2024, 570)
+print(tesla.describe())
+# 2024 Tesla Model 3 (EV, 570km range)
+
+print(isinstance(tesla, ElectricCar))  # True
+print(isinstance(tesla, Vehicle))      # True — it IS a Vehicle
+print(issubclass(ElectricCar, Vehicle)) # True
+```
+
+## Abstract Base Classes
+
+ABCs define a required interface — subclasses *must* implement abstract methods:
+
+```python
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -> float:
+        """Calculate the area of the shape."""
+        ...
+
+    @abstractmethod
+    def perimeter(self) -> float:
+        """Calculate the perimeter of the shape."""
+        ...
+
+    def describe(self) -> str:
+        """Concrete method — shared by all shapes"""
+        return (f"{type(self).__name__}: "
+                f"area={self.area():.2f}, "
+                f"perimeter={self.perimeter():.2f}")
+
+class Circle(Shape):
+    def __init__(self, radius: float):
+        self.radius = radius
+
+    def area(self)      -> float: return 3.14159 * self.radius ** 2
+    def perimeter(self) -> float: return 2 * 3.14159 * self.radius
+
+class Rectangle(Shape):
+    def __init__(self, width: float, height: float):
+        self.width  = width
+        self.height = height
+
+    def area(self)      -> float: return self.width * self.height
+    def perimeter(self) -> float: return 2 * (self.width + self.height)
+
+shapes: list[Shape] = [Circle(5), Rectangle(4, 6)]
+for shape in shapes:
+    print(shape.describe())
+
+# Shape()  # ❌ TypeError: Can't instantiate abstract class
+```
+
+<Callout type="info" title="ABC vs regular class">
+  Use an ABC when you want to enforce a contract — subclasses that miss an abstract method raise a `TypeError` at instantiation, not at the call site. It catches bugs early.
+</Callout>
+
+## Multiple Inheritance and Mixins
+
+Python supports multiple inheritance. Mixins are small, focused classes that add one behaviour:
+
+```python
+class LogMixin:
+    """Adds logging capability to any class"""
+    def log(self, message: str) -> None:
+        print(f"[{type(self).__name__}] {message}")
+
+class ValidateMixin:
+    """Adds validation helpers"""
+    def validate_positive(self, value: float, name: str) -> None:
+        if value <= 0:
+            raise ValueError(f"{name} must be positive, got {value}")
+
+class BankAccount(LogMixin, ValidateMixin):
+    def __init__(self, owner: str, balance: float = 0):
+        self.owner = owner
+        self.validate_positive(balance + 1, "initial balance")  # allow 0
+        self._balance = balance
+
+    def deposit(self, amount: float) -> None:
+        self.validate_positive(amount, "deposit amount")
+        self._balance += amount
+        self.log(f"Deposited ${amount:.2f}. Balance: ${self._balance:.2f}")
+
+    def withdraw(self, amount: float) -> None:
+        self.validate_positive(amount, "withdrawal amount")
+        if amount > self._balance:
+            raise ValueError("Insufficient funds")
+        self._balance -= amount
+        self.log(f"Withdrew ${amount:.2f}. Balance: ${self._balance:.2f}")
+
+acc = BankAccount("Rupa", 1000)
+acc.deposit(500)     # [BankAccount] Deposited $500.00. Balance: $1500.00
+acc.withdraw(200)    # [BankAccount] Withdrew $200.00. Balance: $1300.00
+```
+
+### Method Resolution Order (MRO)
+
+Python uses C3 linearisation to resolve which method to call in multiple inheritance:
+
+```python
+class A:
+    def hello(self): print("A")
+
+class B(A):
+    def hello(self): print("B")
+
+class C(A):
+    def hello(self): print("C")
+
+class D(B, C):
+    pass
+
+D().hello()           # B — follows MRO
+print(D.__mro__)      # (D, B, C, A, object)
+```
+
+## Duck Typing — Python's Approach to Interfaces
+
+Python doesn't have formal `interface` declarations. Instead, it uses **duck typing**: if an object has the right methods, it works — no inheritance required.
+
+> "If it walks like a duck and quacks like a duck, it's a duck."
+
+```python
+# These three classes have NO common parent
+class Duck:
+    def speak(self) -> str: return "Quack!"
+    def move(self)  -> str: return "Waddle"
+
+class Robot:
+    def speak(self) -> str: return "Beep boop"
+    def move(self)  -> str: return "Roll"
+
+class Human:
+    def speak(self) -> str: return "Hello!"
+    def move(self)  -> str: return "Walk"
+
+# This function works with ANY object that has speak() and move()
+def describe(entity) -> None:
+    print(f"Says: {entity.speak()}")
+    print(f"Moves: {entity.move()}")
+
+for thing in [Duck(), Robot(), Human()]:
+    describe(thing)
+```
+
+## Protocols — Structural Typing (Python 3.8+)
+
+`Protocol` makes duck typing explicit and type-checker-friendly:
+
+```python
+from typing import Protocol
+
+class Drawable(Protocol):
+    def draw(self) -> None: ...
+    def get_area(self) -> float: ...
+
+class Circle:
+    def __init__(self, radius: float):
+        self.radius = radius
+
+    def draw(self) -> None:
+        print(f"○  Circle r={self.radius}")
+
+    def get_area(self) -> float:
+        return 3.14159 * self.radius ** 2
+
+class Square:
+    def __init__(self, side: float):
+        self.side = side
+
+    def draw(self) -> None:
+        print(f"□  Square s={self.side}")
+
+    def get_area(self) -> float:
+        return self.side ** 2
+
+# The type hint accepts anything that satisfies Drawable
+def render_all(shapes: list[Drawable]) -> None:
+    for shape in shapes:
+        shape.draw()
+        print(f"   Area: {shape.get_area():.2f}")
+
+# Neither Circle nor Square explicitly inherits Drawable
+# But they satisfy its structure, so this works perfectly
+render_all([Circle(5), Square(4), Circle(2)])
+```
+
+<Callout type="success" title="Protocol vs ABC — when to use which">
+  Use **ABC** when you control the hierarchy and want to enforce implementation via inheritance. Use **Protocol** when you want to describe a structural contract without forcing inheritance — great for library code that should accept any compatible type.
+</Callout>
+
+## What's Next?
+
+**Python OOP #3** covers special methods in depth — context managers (`__enter__`/`__exit__`), iterators (`__iter__`/`__next__`), and making your classes work naturally with Python's built-in operators and protocols.

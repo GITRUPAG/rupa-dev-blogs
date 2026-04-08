@@ -1,0 +1,160 @@
+---
+title: "Python #1 — Introduction & Setting Up"
+description: "What Python is, why it's worth learning, how the interpreter works, and getting your environment ready with pyenv and VS Code."
+date: "2025-04-01"
+tags: ["python", "basics", "setup", "beginner"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 1
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Why Python?
+
+Python is the most-used language for automation, data science, backend APIs, scripting, and AI tooling — not because it's the fastest, but because it's the most readable. You spend more time thinking about the problem than fighting the syntax.
+
+A few things Python does differently from Java or JavaScript:
+
+- **No semicolons** — newlines end statements
+- **Indentation is syntax** — blocks are defined by indentation, not curly braces
+- **Dynamic typing** — no type declarations required (optional type hints exist)
+- **The REPL** — run code line by line interactively
+
+## Installing Python the Right Way
+
+Don't use the system Python (`/usr/bin/python`). Use **pyenv** to manage versions cleanly.
+
+**macOS / Linux:**
+```bash
+# Install pyenv
+curl https://pyenv.run | bash
+
+# Add to your shell config (~/.zshrc or ~/.bashrc)
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+# Restart your shell, then:
+pyenv install 3.12.3
+pyenv global 3.12.3
+
+python --version   # Python 3.12.3
+```
+
+**Windows:**
+Download from [python.org](https://www.python.org/downloads/) — check "Add Python to PATH" during install. Or use [pyenv-win](https://github.com/pyenv-win/pyenv-win).
+
+**Verify:**
+```bash
+python --version    # Python 3.12.x
+pip --version       # pip 24.x
+```
+
+<Callout type="warning" title="python vs python3">
+  On macOS/Linux, `python` might point to Python 2 (ancient). Always use `python3` unless pyenv is active and you've set a global version. In this series we assume `python` = Python 3.
+</Callout>
+
+## The Python REPL
+
+Python has an interactive shell. Type `python` in your terminal:
+
+```
+>>> 2 + 2
+4
+>>> name = "Rupa"
+>>> f"Hello, {name}!"
+'Hello, Rupa!'
+>>> type(name)
+<class 'str'>
+>>> exit()
+```
+
+Use the REPL constantly while learning. It gives you instant feedback.
+
+## Your First Program
+
+<HelloWorldEditor />
+
+Save as `hello.py` and run:
+```bash
+python hello.py
+```
+
+Notice:
+- **No class required** — Python code can live at the top level
+- **`print()`** is a function call with parentheses (unlike Java's `System.out.println`)
+- **f-strings** (`f"Hello, {name}!"`) are the modern way to embed variables in strings
+
+## Setting Up VS Code
+
+1. Install [VS Code](https://code.visualstudio.com)
+2. Install the **Python** extension by Microsoft
+3. Install **Pylance** for type checking and autocompletion
+4. Open a `.py` file — VS Code detects Python and activates
+
+Useful settings (`settings.json`):
+```json
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  }
+}
+```
+
+Install the Black formatter:
+```bash
+pip install black
+```
+
+## Virtual Environments — Always Use One
+
+A virtual environment isolates your project's dependencies. Never install packages globally.
+
+```bash
+# Create a virtual environment
+python -m venv .venv
+
+# Activate it
+source .venv/bin/activate      # macOS/Linux
+.venv\Scripts\activate         # Windows
+
+# Your prompt changes to show (.venv)
+(.venv) $ pip install requests
+
+# Deactivate when done
+deactivate
+```
+
+Always add `.venv/` to your `.gitignore`.
+
+```bash
+# Save your dependencies
+pip freeze > requirements.txt
+
+# Restore in another environment
+pip install -r requirements.txt
+```
+
+<Callout type="info" title="One virtual environment per project">
+  Creating a new `.venv` for every project prevents dependency conflicts. Project A needs `requests==2.28` and project B needs `requests==2.31`? No problem — separate venvs.
+</Callout>
+
+## How Python Runs Your Code
+
+```
+your script.py
+  → Python reads it line by line
+  → Compiles to bytecode (.pyc files in __pycache__)
+  → CPython interpreter executes the bytecode
+```
+
+Unlike Java, there's no separate compile step you have to run. `python script.py` compiles and runs in one command.
+
+## What's Next?
+
+**Python #2** covers variables, data types, and strings in depth — Python's type system, type hints, and why f-strings are the only string formatting you need to know.

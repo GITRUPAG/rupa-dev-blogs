@@ -1,0 +1,272 @@
+---
+title: "Python #5 — Modules, Error Handling & File I/O"
+description: "Importing modules, handling exceptions properly, reading and writing files with pathlib, and the standard library tools you'll use in every project."
+date: "2025-04-09"
+tags: ["python", "basics", "modules", "exceptions", "file-io"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 5
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Modules and Imports
+
+A module is just a `.py` file. A package is a folder with an `__init__.py`.
+
+```python
+# Import the whole module
+import math
+print(math.sqrt(16))   # 4.0
+print(math.pi)         # 3.141592...
+
+# Import specific names
+from math import sqrt, pi, ceil
+print(sqrt(25))        # 5.0
+
+# Import with alias
+import numpy as np          # common convention
+import pandas as pd
+from datetime import datetime as dt
+
+# Import everything (avoid — pollutes namespace)
+from math import *
+```
+
+### Your Own Modules
+
+```python
+# utils.py
+def clamp(value: float, min_val: float, max_val: float) -> float:
+    """Clamp value to [min_val, max_val]."""
+    return max(min_val, min(max_val, value))
+
+GOLDEN_RATIO = 1.618033988749895
+```
+
+```python
+# main.py
+from utils import clamp, GOLDEN_RATIO
+
+print(clamp(150, 0, 100))   # 100.0
+print(GOLDEN_RATIO)          # 1.618...
+```
+
+### `if __name__ == "__main__"`
+
+```python
+# script.py
+def process(data):
+    return [x * 2 for x in data]
+
+# This block runs only when the file is executed directly,
+# NOT when it's imported as a module
+if __name__ == "__main__":
+    result = process([1, 2, 3])
+    print(result)
+```
+
+<Callout type="info" title="Always guard your script code">
+  Code at the top level of a module runs when it's imported. Wrap executable code in `if __name__ == "__main__":` so it only runs when intended.
+</Callout>
+
+## Error Handling
+
+```python
+# Basic try/except
+try:
+    result = 10 / 0
+except ZeroDivisionError:
+    print("Can't divide by zero!")
+
+# Catch multiple exceptions
+try:
+    data = int(input("Enter a number: "))
+except ValueError:
+    print("That's not a number")
+except (TypeError, OverflowError) as e:
+    print(f"Type/overflow error: {e}")
+except Exception as e:          # catch-all (use sparingly)
+    print(f"Unexpected: {e}")
+else:
+    print(f"Result: {data * 2}")   # runs if NO exception
+finally:
+    print("This always runs")      # cleanup
+```
+
+### Raising Exceptions
+
+```python
+def divide(a: float, b: float) -> float:
+    if b == 0:
+        raise ValueError("Denominator cannot be zero")
+    return a / b
+
+def get_user(user_id: int):
+    if user_id <= 0:
+        raise ValueError(f"Invalid user ID: {user_id}")
+    # ... look up user ...
+    user = None
+    if user is None:
+        raise LookupError(f"User {user_id} not found")
+    return user
+
+# Re-raise after logging
+try:
+    result = divide(10, 0)
+except ValueError as e:
+    print(f"Logging error: {e}")
+    raise   # re-raise the same exception
+```
+
+### Custom Exceptions
+
+```python
+class AppError(Exception):
+    """Base exception for this application."""
+    pass
+
+class ValidationError(AppError):
+    def __init__(self, field: str, message: str):
+        self.field = field
+        self.message = message
+        super().__init__(f"{field}: {message}")
+
+class NotFoundError(AppError):
+    def __init__(self, resource: str, id):
+        super().__init__(f"{resource} with id {id!r} not found")
+
+# Usage
+try:
+    raise ValidationError("email", "must be a valid email address")
+except ValidationError as e:
+    print(f"Validation failed on field '{e.field}': {e.message}")
+
+try:
+    raise NotFoundError("Product", 42)
+except NotFoundError as e:
+    print(e)  # Product with id 42 not found
+```
+
+## File I/O with pathlib
+
+`pathlib` is the modern way to work with files. Forget `os.path`.
+
+<FileOpsEditor />
+
+### Reading and Writing
+
+```python
+from pathlib import Path
+
+# Read text
+content = Path("readme.txt").read_text(encoding="utf-8")
+
+# Read lines
+lines = Path("data.txt").read_text().splitlines()
+
+# Write text (overwrites)
+Path("output.txt").write_text("Hello, file!\n", encoding="utf-8")
+
+# Append to file
+with open("log.txt", "a", encoding="utf-8") as f:
+    f.write("New log entry\n")
+
+# The with statement — always use it for files
+# It guarantees the file is closed even if an exception occurs
+with open("data.txt", "r", encoding="utf-8") as f:
+    for line in f:                    # read line by line (memory efficient)
+        print(line.strip())
+```
+
+### Working with JSON
+
+```python
+import json
+from pathlib import Path
+
+# Write JSON
+data = {
+    "users": [
+        {"id": 1, "name": "Alice", "active": True},
+        {"id": 2, "name": "Bob",   "active": False},
+    ]
+}
+Path("users.json").write_text(json.dumps(data, indent=2))
+
+# Read JSON
+loaded = json.loads(Path("users.json").read_text())
+for user in loaded["users"]:
+    status = "active" if user["active"] else "inactive"
+    print(f"{user['name']} is {status}")
+```
+
+### Path Operations
+
+```python
+from pathlib import Path
+
+p = Path("/home/rupa/projects/myapp/src/main.py")
+
+print(p.name)        # main.py
+print(p.stem)        # main
+print(p.suffix)      # .py
+print(p.parent)      # /home/rupa/projects/myapp/src
+print(p.parts)       # ('/', 'home', 'rupa', ...)
+
+# Build paths safely (works on all OS)
+data_dir = Path.home() / "projects" / "myapp" / "data"
+data_dir.mkdir(parents=True, exist_ok=True)
+
+# Find files
+src = Path("src")
+py_files = list(src.rglob("*.py"))     # recursive glob
+txt_files = list(src.glob("*.txt"))    # non-recursive
+
+# Check existence
+print(p.exists())     # True/False
+print(p.is_file())    # True
+print(p.is_dir())     # False
+```
+
+## Standard Library Essentials
+
+```python
+# datetime
+from datetime import datetime, timedelta
+
+now = datetime.now()
+print(now.strftime("%Y-%m-%d %H:%M:%S"))   # 2025-04-09 10:30:00
+
+one_week_later = now + timedelta(weeks=1)
+diff = one_week_later - now
+print(diff.days)   # 7
+
+# os — environment, processes
+import os
+home = os.environ.get("HOME", "/tmp")
+print(os.getcwd())                    # current working directory
+os.makedirs("logs/2025", exist_ok=True)
+
+# random
+import random
+print(random.randint(1, 10))          # random int 1-10
+print(random.choice(["a", "b", "c"])) # random item
+random.shuffle([1, 2, 3, 4, 5])      # in-place shuffle
+
+# itertools
+from itertools import chain, islice, groupby
+
+flat = list(chain([1, 2], [3, 4], [5]))   # [1, 2, 3, 4, 5]
+first5 = list(islice(range(1000), 5))     # [0, 1, 2, 3, 4]
+```
+
+<Callout type="success" title="End of Python Basics">
+  Variables, types, control flow, functions, collections, modules, error handling, file I/O. You now have the foundations. Next up — OOP, how Python models everything as objects.
+</Callout>
+
+## What's Next?
+
+**Python OOP #1** — classes, instance vs class attributes, `__init__`, `__str__`, `__repr__`, properties, and dataclasses.

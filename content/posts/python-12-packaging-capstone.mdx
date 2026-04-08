@@ -1,0 +1,307 @@
+---
+title: "Python Automation #2 — Packaging, Scheduling & Project Capstone"
+description: "Package your scripts as installable CLI tools with pyproject.toml, schedule tasks with APScheduler, write proper tests, and ship your first Python project."
+date: "2025-04-23"
+tags: ["python", "automation", "packaging", "testing", "pytest"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 12
+featured: true
+githubRepo: "https://github.com/rupa/python-automation-starter"
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What We're Building
+
+The final post pulls everything together into a real project:
+
+```
+mytools/             ← installable Python package
+├── src/mytools/
+│   ├── __init__.py
+│   ├── cli.py       ← Click CLI entry points
+│   ├── backup.py    ← file automation module
+│   ├── api.py       ← HTTP helpers
+│   └── scheduler.py ← background task runner
+├── tests/
+│   ├── test_backup.py
+│   └── test_api.py
+├── pyproject.toml   ← modern project config
+└── README.md
+```
+
+## pyproject.toml — Modern Project Config
+
+`pyproject.toml` replaces `setup.py`, `setup.cfg`, `requirements.txt`, `.flake8`, `mypy.ini` — one file for everything:
+
+```toml
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name        = "mytools"
+version     = "0.1.0"
+description = "A collection of automation scripts"
+readme      = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31",
+    "click>=8.1",
+    "pydantic>=2.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "mypy",
+    "ruff",
+]
+
+# This is the magic — installs the package and creates CLI commands
+[project.scripts]
+mytools        = "mytools.cli:cli"
+mytools-backup = "mytools.backup:main"
+
+[tool.ruff]
+line-length = 100
+select      = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version       = "3.12"
+strict               = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --cov=src/mytools --cov-report=term-missing"
+```
+
+Install in development mode:
+```bash
+pip install -e ".[dev]"
+
+# Now you can run:
+mytools --help
+mytools-backup ./src ./dest -v
+```
+
+## Project Structure
+
+<FileTree>
+mytools/
+├── src/
+│   └── mytools/
+│       ├── __init__.py
+│       ├── cli.py
+│       ├── backup.py
+│       ├── api.py
+│       └── scheduler.py
+├── tests/
+│   ├── __init__.py
+│   ├── test_backup.py
+│   └── test_api.py
+├── pyproject.toml
+├── .env.example
+├── .gitignore
+└── README.md
+</FileTree>
+
+## The API Module
+
+```python
+# src/mytools/api.py
+from __future__ import annotations
+
+import httpx
+from pydantic import BaseModel
+
+class ApiClient:
+    def __init__(self, base_url: str, token: str | None = None):
+        self.base_url = base_url.rstrip("/")
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        self._client = httpx.Client(headers=headers, timeout=30)
+
+    def __enter__(self) -> ApiClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self._client.close()
+
+    def get(self, path: str, **params: object) -> dict:
+        r = self._client.get(f"{self.base_url}{path}", params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def post(self, path: str, data: dict) -> dict:
+        r = self._client.post(f"{self.base_url}{path}", json=data)
+        r.raise_for_status()
+        return r.json()
+
+# Usage
+with ApiClient("https://api.example.com", token="my-jwt-token") as client:
+    users = client.get("/users", page=1, limit=10)
+```
+
+## Scheduling Tasks
+
+```bash
+pip install apscheduler
+```
+
+```python
+# src/mytools/scheduler.py
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime
+
+scheduler = BlockingScheduler()
+
+@scheduler.scheduled_job(CronTrigger(hour=2, minute=0))  # 2:00 AM daily
+def nightly_backup():
+    print(f"[{datetime.now()}] Running nightly backup...")
+    # import and run your backup logic here
+
+@scheduler.scheduled_job("interval", minutes=30)
+def sync_data():
+    print(f"[{datetime.now()}] Syncing data...")
+    # fetch from API, update local cache
+
+@scheduler.scheduled_job(CronTrigger(day_of_week="mon", hour=9))
+def weekly_report():
+    print(f"[{datetime.now()}] Generating weekly report...")
+
+if __name__ == "__main__":
+    print("Scheduler started. Press Ctrl+C to exit.")
+    scheduler.start()
+```
+
+## Testing with pytest
+
+```bash
+pip install pytest pytest-cov
+```
+
+```python
+# tests/test_backup.py
+import pytest
+from pathlib import Path
+import shutil
+from mytools.backup import backup, organize_downloads
+
+@pytest.fixture
+def tmp_source(tmp_path: Path) -> Path:
+    """Create a temp folder with some test files"""
+    src = tmp_path / "source"
+    src.mkdir()
+    (src / "photo.jpg").write_text("fake image")
+    (src / "report.pdf").write_text("fake pdf")
+    (src / "notes.txt").write_text("some notes")
+    return src
+
+@pytest.fixture
+def tmp_dest(tmp_path: Path) -> Path:
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    return dest
+
+def test_backup_creates_copy(tmp_source: Path, tmp_dest: Path):
+    backup(str(tmp_source), str(tmp_dest), compress=False)
+    backups = list(tmp_dest.iterdir())
+    assert len(backups) == 1
+    assert backups[0].is_dir()
+
+def test_backup_compressed(tmp_source: Path, tmp_dest: Path):
+    backup(str(tmp_source), str(tmp_dest), compress=True)
+    zips = list(tmp_dest.glob("*.zip"))
+    assert len(zips) == 1
+
+def test_organize_by_extension(tmp_source: Path, tmp_dest: Path):
+    organize_downloads(str(tmp_source), str(tmp_dest))
+    assert (tmp_dest / "images" / "photo.jpg").exists()
+    assert (tmp_dest / "documents" / "report.pdf").exists()
+    assert (tmp_dest / "other" / "notes.txt").exists()
+```
+
+```python
+# tests/test_api.py
+import pytest
+from unittest.mock import patch, MagicMock
+from mytools.api import ApiClient
+
+def test_get_returns_json():
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"id": 1, "name": "Alice"}
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.Client.get", return_value=mock_response):
+        with ApiClient("https://api.example.com") as client:
+            result = client.get("/users/1")
+
+    assert result["name"] == "Alice"
+
+def test_get_raises_on_error():
+    import httpx
+    mock_response = MagicMock()
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "404", request=MagicMock(), response=MagicMock()
+    )
+    with patch("httpx.Client.get", return_value=mock_response):
+        with ApiClient("https://api.example.com") as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                client.get("/missing")
+```
+
+Run tests:
+```bash
+pytest                   # run all tests
+pytest -v                # verbose
+pytest tests/test_api.py # specific file
+pytest --cov             # with coverage report
+```
+
+## The Production Checklist
+
+<Step number={1} title="Code quality">
+  Run `ruff check .` for linting. Run `mypy src/` for type checking. All functions have type hints. Docstrings on public functions.
+</Step>
+
+<Step number={2} title="Dependencies">
+  All deps in `pyproject.toml`. Dev deps in `[optional-dependencies.dev]`. Pinned in `requirements.lock` for reproducible installs: `pip-compile pyproject.toml`.
+</Step>
+
+<Step number={3} title="Tests">
+  `pytest` passes with 0 failures. Coverage above 80% for core logic. Fixtures in `conftest.py` for shared setup. No hardcoded paths or real API calls in tests.
+</Step>
+
+<Step number={4} title="Environment">
+  Secrets loaded from `.env` via `python-dotenv`. `.env.example` documents all required vars. `.env` is in `.gitignore`. Tested with a clean virtual environment.
+</Step>
+
+<Step number={5} title="CLI experience">
+  `--help` works on every command. Errors print a useful message, not a stack trace. `--dry-run` mode on destructive operations. Exit codes: 0 on success, non-zero on failure.
+</Step>
+
+<Step number={6} title="Distribution">
+  `python -m build` produces a wheel. `pip install dist/*.whl` works in a fresh venv. README has install instructions and examples.
+</Step>
+
+<Callout type="success" title="Python series complete">
+  From `print("Hello")` to installable CLI packages — you now have the full picture: syntax, OOP, advanced patterns, automation, testing, and distribution. The GitHub repo linked above has the complete `mytools` package ready to clone and extend.
+</Callout>
+
+## What to Learn Next
+
+- **FastAPI** — async REST APIs using everything from this series (Pydantic, async, type hints)
+- **SQLAlchemy** — database ORM for Python
+- **Pandas + Polars** — data analysis and manipulation
+- **Celery** — distributed task queues for background jobs
+- **Docker** — containerise your Python scripts for reliable deployment
+
+You have the foundation. Build something with it.

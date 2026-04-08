@@ -4,6 +4,24 @@ import { cn } from '@/lib/utils'
 import { CodeEditor } from '@/components/editor/CodeEditor'
 import { JwtServiceEditor, TestAuthEditor } from '@/components/blog/post-components/JwtEditors'
 
+import {
+  HelloWorldEditor,
+  VariablesEditor,
+  StringOpsEditor,
+  NumbersEditor,
+  ControlFlowEditor,
+  ListOpsEditor,
+  FunctionsEditor,
+  ClassBasicsEditor,
+  InheritanceEditor,
+  DataclassEditor,
+  DecoratorsEditor,
+  GeneratorsEditor,
+  ComprehensionsEditor,
+  FileOpsEditor,
+  RequestsApiEditor,
+} from '@/components/blog/post-components/PythonEditors'
+
 function Callout({
   type = 'info',
   title,
@@ -114,4 +132,27 @@ export const MDXComponents: MDXComponentsType = {
   Callout,
   Step,
   FileTree,
+
+  // Python Basics
+  HelloWorldEditor,
+  VariablesEditor,
+  StringOpsEditor,
+  NumbersEditor,
+  ControlFlowEditor,
+  ListOpsEditor,
+  FunctionsEditor,
+ 
+  // Python OOP
+  ClassBasicsEditor,
+  InheritanceEditor,
+  DataclassEditor,
+ 
+  // Python Advanced
+  DecoratorsEditor,
+  GeneratorsEditor,
+  ComprehensionsEditor,
+ 
+  // Python Automation
+  FileOpsEditor,
+  RequestsApiEditor,
 }

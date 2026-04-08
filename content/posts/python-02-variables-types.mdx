@@ -1,0 +1,197 @@
+---
+title: "Python #2 — Variables, Data Types & Strings"
+description: "Python's type system, all the built-in types you'll use daily, type hints, and everything about strings including f-strings, slicing, and common methods."
+date: "2025-04-03"
+tags: ["python", "basics", "variables", "strings", "types"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 2
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Variables
+
+Python variables don't need type declarations. Just assign:
+
+<VariablesEditor />
+
+Python uses **dynamic typing** — a variable can hold any type, and its type can change. But that doesn't mean you should ignore types. Python 3.5+ supports **type hints** which make your code self-documenting and enable IDE autocompletion:
+
+```python
+# Type hints — optional but recommended
+name: str = "Alice"
+age: int = 25
+price: float = 9.99
+is_active: bool = True
+
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+```
+
+Type hints don't change behaviour at runtime — they're documentation for humans and tools.
+
+## The Built-in Types
+
+### Numbers
+
+<NumbersEditor />
+
+<Callout type="info" title="/ always returns float in Python 3">
+  `10 / 2` returns `5.0`, not `5`. Use `//` for integer division when you need a whole number result.
+</Callout>
+
+### Booleans
+
+```python
+# Booleans are a subclass of int in Python
+print(True + True)   # 2
+print(True * 5)      # 5
+print(False + 1)     # 1
+
+# Truthy and falsy values
+# Falsy: False, 0, 0.0, "", [], {}, set(), None
+# Everything else is truthy
+
+if []:            print("empty list is truthy")   # doesn't run
+if [0]:           print("list with item is truthy") # runs
+if "":            print("empty string is truthy")  # doesn't run
+if "0":           print("non-empty string is truthy") # runs
+```
+
+### None
+
+```python
+# None is Python's null
+result = None
+
+if result is None:   # use 'is', not '=='
+    print("No result yet")
+
+# Common pattern — default argument
+def find_user(id: int, default=None):
+    # ... look up user ...
+    return None  # not found
+```
+
+<Callout type="warning" title="Use 'is None' not '== None'">
+  Always check `x is None` not `x == None`. The `==` operator can be overridden by classes; `is` checks identity and is always correct for None checks.
+</Callout>
+
+## Strings In Depth
+
+<StringOpsEditor />
+
+### String Slicing
+
+```python
+text = "Hello, Python!"
+
+# text[start:stop:step]
+print(text[0:5])    # Hello  (index 0 to 4)
+print(text[7:])     # Python! (from index 7 to end)
+print(text[:5])     # Hello  (start to index 4)
+print(text[-7:])    # Python! (last 7 chars)
+print(text[::2])    # Hlo yhn (every 2nd char)
+print(text[::-1])   # !nohtyP ,olleH (reversed!)
+```
+
+### String Formatting — Three Ways
+
+```python
+name = "Rupa"
+score = 98.5
+
+# 1. f-strings (Python 3.6+) — use this
+print(f"Name: {name}, Score: {score:.1f}")  # Name: Rupa, Score: 98.5
+
+# 2. .format() — older, still common
+print("Name: {}, Score: {:.1f}".format(name, score))
+
+# 3. % operator — legacy, avoid
+print("Name: %s, Score: %.1f" % (name, score))
+```
+
+f-string format spec examples:
+```python
+pi = 3.14159265
+
+print(f"{pi:.2f}")     # 3.14      — 2 decimal places
+print(f"{pi:10.2f}")   #       3.14 — right-aligned, width 10
+print(f"{1234567:,}")  # 1,234,567 — thousand separator
+print(f"{0.75:.0%}")   # 75%       — percentage
+print(f"{'hi':>10}")   #         hi — right-align string
+print(f"{'hi':<10}")   # hi         — left-align string
+print(f"{'hi':^10}")   #     hi     — center string
+```
+
+### Multi-line Strings
+
+```python
+# Triple quotes — whitespace is preserved
+sql = """
+    SELECT *
+    FROM products
+    WHERE price < 100
+    ORDER BY name
+"""
+
+# Dedented (remove leading whitespace)
+from textwrap import dedent
+query = dedent("""
+    SELECT *
+    FROM products
+""").strip()
+```
+
+### Useful String Methods Reference
+
+```python
+s = "  Hello, World!  "
+
+# Cleaning
+s.strip()           # "Hello, World!"    remove whitespace both ends
+s.lstrip()          # "Hello, World!  "  left only
+s.rstrip()          #  "  Hello, World!" right only
+
+# Case
+s.lower()           # "  hello, world!  "
+s.upper()           # "  HELLO, WORLD!  "
+s.title()           # "  Hello, World!  "
+s.capitalize()      # "  hello, world!  " (only first char)
+
+# Search
+"World" in s                 # True
+s.find("World")              # 9 (index) or -1 if not found
+s.count("l")                 # 3
+s.startswith("  Hello")      # True
+s.endswith("!  ")            # True
+
+# Modify (strings are immutable — these return new strings)
+s.replace("World", "Python") # "  Hello, Python!  "
+", ".join(["a", "b", "c"])  # "a, b, c"
+"a,b,c".split(",")          # ["a", "b", "c"]
+```
+
+## Type Conversion
+
+```python
+# Explicit conversion
+int("42")         # 42
+float("3.14")     # 3.14
+str(100)          # "100"
+bool(0)           # False
+bool("hello")     # True
+list("abc")       # ['a', 'b', 'c']
+
+# Careful with invalid conversions
+int("hello")      # ❌ ValueError
+int("3.14")       # ❌ ValueError — use float() then int()
+int(float("3.14")) # ✅ 3
+```
+
+## What's Next?
+
+**Python #3** covers control flow and functions — `if/elif/else`, loops, `break`/`continue`, and writing clean reusable functions with default args, `*args`, and `**kwargs`.

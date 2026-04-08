@@ -57,7 +57,8 @@ export function getTagColor(tag: string): string {
 
 export const CATEGORY_CONFIG = {
   react: { label: 'React', color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-  java: { label: 'Spring Boot', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  java:        { label: 'Java',         color: 'text-red-400',     bg: 'bg-red-500/10' },       // ← changed
+  'spring-boot': { label: 'Spring Boot', color: 'text-orange-400', bg: 'bg-orange-500/10' },    // ← new
   fullstack: { label: 'Full Stack', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   ai: { label: 'AI / ML', color: 'text-violet-400', bg: 'bg-violet-500/10' },
   project: { label: 'Projects', color: 'text-pink-400', bg: 'bg-pink-500/10' },

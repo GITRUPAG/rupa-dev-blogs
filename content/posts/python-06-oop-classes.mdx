@@ -1,0 +1,230 @@
+---
+title: "Python OOP #1 — Classes, Objects & Dataclasses"
+description: "Everything about Python classes: instance vs class attributes, dunder methods, properties, class methods, static methods, and the modern dataclass."
+date: "2025-04-11"
+tags: ["python", "oop", "classes", "dataclasses"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 6
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Creating Classes
+
+<ClassBasicsEditor />
+
+## Instance vs Class Attributes
+
+```python
+class Counter:
+    # Class attribute — shared across ALL instances
+    total_created = 0
+
+    def __init__(self, name: str, start: int = 0):
+        # Instance attributes — unique to each instance
+        self.name = name
+        self.value = start
+        Counter.total_created += 1  # modify class attribute
+
+    def increment(self, amount: int = 1) -> None:
+        self.value += amount
+
+    def reset(self) -> None:
+        self.value = 0
+
+c1 = Counter("hits")
+c2 = Counter("misses", start=10)
+
+c1.increment()
+c1.increment(5)
+c2.increment(3)
+
+print(c1.value)              # 6
+print(c2.value)              # 13
+print(Counter.total_created) # 2
+```
+
+## Dunder (Magic) Methods
+
+Dunder methods let your class behave like a built-in Python type:
+
+```python
+class Vector:
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+    def __repr__(self) -> str:
+        """Unambiguous developer representation"""
+        return f"Vector({self.x!r}, {self.y!r})"
+
+    def __str__(self) -> str:
+        """Human-readable representation"""
+        return f"({self.x}, {self.y})"
+
+    def __add__(self, other: "Vector") -> "Vector":
+        return Vector(self.x + other.x, self.y + other.y)
+
+    def __mul__(self, scalar: float) -> "Vector":
+        return Vector(self.x * scalar, self.y * scalar)
+
+    def __rmul__(self, scalar: float) -> "Vector":
+        return self.__mul__(scalar)    # supports 3 * v as well as v * 3
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Vector):
+            return NotImplemented
+        return self.x == other.x and self.y == other.y
+
+    def __abs__(self) -> float:
+        """Magnitude — abs(v)"""
+        return (self.x**2 + self.y**2) ** 0.5
+
+    def __len__(self) -> int:
+        return 2   # a 2D vector always has 2 components
+
+v1 = Vector(1, 2)
+v2 = Vector(3, 4)
+print(v1 + v2)         # (4, 6)
+print(v1 * 3)          # (3, 6)
+print(3 * v1)          # (3, 6)
+print(abs(v2))         # 5.0
+print(repr(v1))        # Vector(1, 2)
+```
+
+<Callout type="info" title="__repr__ vs __str__">
+  `__repr__` is for developers (used in the REPL, logs, `repr()`). It should ideally be valid Python that recreates the object. `__str__` is for end users (used by `print()`, `str()`). If you define only one, define `__repr__`.
+</Callout>
+
+## Properties
+
+Properties let you add validation or computation to attribute access without changing the public API:
+
+```python
+class Temperature:
+    def __init__(self, celsius: float = 0):
+        self._celsius = celsius   # _ prefix = "private by convention"
+
+    @property
+    def celsius(self) -> float:
+        return self._celsius
+
+    @celsius.setter
+    def celsius(self, value: float) -> None:
+        if value < -273.15:
+            raise ValueError(f"Temperature below absolute zero: {value}")
+        self._celsius = value
+
+    @property
+    def fahrenheit(self) -> float:
+        return self._celsius * 9/5 + 32
+
+    @fahrenheit.setter
+    def fahrenheit(self, value: float) -> None:
+        self.celsius = (value - 32) * 5/9   # reuse celsius setter's validation
+
+    @property
+    def kelvin(self) -> float:
+        return self._celsius + 273.15
+
+t = Temperature(100)
+print(t.celsius)     # 100
+print(t.fahrenheit)  # 212.0
+print(t.kelvin)      # 373.15
+
+t.fahrenheit = 32
+print(t.celsius)     # 0.0
+
+t.celsius = -300     # ❌ ValueError: Temperature below absolute zero
+```
+
+## Class Methods and Static Methods
+
+```python
+class Date:
+    def __init__(self, year: int, month: int, day: int):
+        self.year  = year
+        self.month = month
+        self.day   = day
+
+    @classmethod
+    def today(cls) -> "Date":
+        """Alternative constructor — creates a Date from today"""
+        from datetime import date
+        d = date.today()
+        return cls(d.year, d.month, d.day)
+
+    @classmethod
+    def from_string(cls, s: str) -> "Date":
+        """Create a Date from 'YYYY-MM-DD' string"""
+        year, month, day = map(int, s.split("-"))
+        return cls(year, month, day)
+
+    @staticmethod
+    def is_leap_year(year: int) -> bool:
+        """Doesn't need self or cls — pure utility"""
+        return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+    def __str__(self) -> str:
+        return f"{self.year:04d}-{self.month:02d}-{self.day:02d}"
+
+today = Date.today()
+d     = Date.from_string("2025-04-11")
+print(today)                      # 2025-04-11
+print(Date.is_leap_year(2024))    # True
+print(Date.is_leap_year(2025))    # False
+```
+
+## Dataclasses — Classes Without the Boilerplate
+
+<DataclassEditor />
+
+Dataclasses auto-generate `__init__`, `__repr__`, `__eq__`, and optionally `__hash__` and comparison methods:
+
+```python
+from dataclasses import dataclass, field
+from typing import ClassVar
+
+@dataclass(frozen=True)   # frozen=True makes it immutable (like a record)
+class Point:
+    x: float
+    y: float
+
+    def distance_to(self, other: "Point") -> float:
+        return ((self.x - other.x)**2 + (self.y - other.y)**2) ** 0.5
+
+p1 = Point(0, 0)
+p2 = Point(3, 4)
+print(p1.distance_to(p2))   # 5.0
+print(p1 == Point(0, 0))    # True — __eq__ is generated
+
+# Can be used in sets and as dict keys (frozen=True adds __hash__)
+points = {p1, p2}
+```
+
+```python
+@dataclass
+class Config:
+    host: str = "localhost"
+    port: int = 8080
+    debug: bool = False
+    allowed_hosts: list[str] = field(default_factory=list)
+
+    # Post-init validation
+    def __post_init__(self):
+        if self.port < 1 or self.port > 65535:
+            raise ValueError(f"Invalid port: {self.port}")
+        if not self.host:
+            raise ValueError("Host cannot be empty")
+
+cfg = Config(port=3000, debug=True)
+print(cfg)
+# Config(host='localhost', port=3000, debug=True, allowed_hosts=[])
+```
+
+## What's Next?
+
+**Python OOP #2** covers inheritance, abstract base classes, mixins, and Python's approach to interfaces — including how duck typing replaces formal interface declarations.

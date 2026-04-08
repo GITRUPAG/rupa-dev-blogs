@@ -1,0 +1,298 @@
+---
+title: "Python Automation #1 — Files, APIs & CLI Scripts"
+description: "Real automation scripts you can actually use: bulk file processing, calling REST APIs with requests, parsing CSV/JSON, and building CLI tools with argparse and Click."
+date: "2025-04-21"
+tags: ["python", "automation", "scripting", "cli", "requests"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 11
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Real File Automation
+
+<FileOpsEditor />
+
+### Rename Files in Bulk
+
+```python
+from pathlib import Path
+import re
+
+def rename_with_prefix(folder: str, prefix: str, dry_run: bool = True):
+    """Add a prefix to all .jpg files in a folder"""
+    folder_path = Path(folder)
+
+    for file in sorted(folder_path.glob("*.jpg")):
+        new_name = folder_path / f"{prefix}_{file.name}"
+        if dry_run:
+            print(f"  Would rename: {file.name} → {new_name.name}")
+        else:
+            file.rename(new_name)
+            print(f"  Renamed: {file.name} → {new_name.name}")
+
+# Always test with dry_run=True first!
+rename_with_prefix("photos/", "2025", dry_run=True)
+```
+
+### Organize Files by Extension
+
+```python
+from pathlib import Path
+import shutil
+
+def organize_downloads(source: str, dest: str):
+    """Sort files from source into type-named subfolders in dest"""
+    ext_map = {
+        ".pdf":  "documents",
+        ".docx": "documents",
+        ".xlsx": "spreadsheets",
+        ".jpg":  "images",
+        ".jpeg": "images",
+        ".png":  "images",
+        ".mp4":  "videos",
+        ".zip":  "archives",
+    }
+
+    src = Path(source)
+    dst = Path(dest)
+
+    moved = 0
+    skipped = 0
+
+    for file in src.iterdir():
+        if not file.is_file():
+            continue
+        folder_name = ext_map.get(file.suffix.lower(), "other")
+        target_dir  = dst / folder_name
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_file = target_dir / file.name
+        shutil.move(str(file), str(target_file))
+        print(f"  {file.name} → {folder_name}/")
+        moved += 1
+
+    print(f"\nMoved {moved} files, skipped {skipped}")
+
+# organize_downloads("~/Downloads", "~/Organized")
+```
+
+## Working with CSV
+
+```python
+import csv
+from pathlib import Path
+from dataclasses import dataclass
+
+@dataclass
+class SalesRecord:
+    date:     str
+    product:  str
+    quantity: int
+    revenue:  float
+
+def read_sales(filename: str) -> list[SalesRecord]:
+    records = []
+    with open(filename, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            records.append(SalesRecord(
+                date=row["date"],
+                product=row["product"],
+                quantity=int(row["quantity"]),
+                revenue=float(row["revenue"]),
+            ))
+    return records
+
+def write_summary(records: list[SalesRecord], output: str):
+    # Group by product
+    from collections import defaultdict
+    by_product: dict[str, float] = defaultdict(float)
+    for r in records:
+        by_product[r.product] += r.revenue
+
+    with open(output, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Product", "Total Revenue"])
+        for product, total in sorted(by_product.items(), key=lambda x: -x[1]):
+            writer.writerow([product, f"{total:.2f}"])
+
+    print(f"Summary written to {output}")
+```
+
+## Calling REST APIs with `requests`
+
+```bash
+pip install requests
+```
+
+<RequestsApiEditor />
+
+### Real API Calls
+
+```python
+import requests
+from typing import Any
+
+BASE = "https://jsonplaceholder.typicode.com"
+
+def get(path: str, **params) -> Any:
+    r = requests.get(f"{BASE}{path}", params=params, timeout=10)
+    r.raise_for_status()   # raises HTTPError for 4xx/5xx
+    return r.json()
+
+def post(path: str, data: dict) -> Any:
+    r = requests.post(
+        f"{BASE}{path}",
+        json=data,           # automatically sets Content-Type: application/json
+        timeout=10
+    )
+    r.raise_for_status()
+    return r.json()
+
+# Fetch users and their posts
+users = get("/users")
+for user in users[:3]:
+    posts = get("/posts", userId=user["id"])
+    print(f"{user['name']}: {len(posts)} posts")
+
+# Create a post
+new_post = post("/posts", {
+    "title": "My Automation Post",
+    "body": "Written by a Python script",
+    "userId": 1,
+})
+print(f"Created post #{new_post['id']}")
+```
+
+### Session with Auth Headers
+
+```python
+import requests
+
+# Session reuses the connection and headers
+session = requests.Session()
+session.headers.update({
+    "Authorization": "Bearer your_token_here",
+    "Content-Type": "application/json",
+})
+
+# All requests through the session include the auth header
+response = session.get("https://api.example.com/me")
+users    = session.get("https://api.example.com/users")
+session.close()
+
+# Or use as context manager
+with requests.Session() as s:
+    s.headers["Authorization"] = "Bearer token"
+    data = s.get("https://api.example.com/protected").json()
+```
+
+## Building CLI Scripts with argparse
+
+```python
+# backup.py
+import argparse
+import shutil
+from pathlib import Path
+from datetime import datetime
+
+def backup(source: str, dest: str, compress: bool = False, verbose: bool = False):
+    src  = Path(source)
+    dst  = Path(dest)
+    ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+    name = f"{src.name}_{ts}"
+
+    dst.mkdir(parents=True, exist_ok=True)
+
+    if compress:
+        archive = shutil.make_archive(str(dst / name), "zip", src)
+        if verbose: print(f"Compressed backup: {archive}")
+    else:
+        target = dst / name
+        shutil.copytree(src, target)
+        if verbose: print(f"Backup created: {target}")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Backup a folder with an optional timestamp"
+    )
+    parser.add_argument("source",          help="Folder to back up")
+    parser.add_argument("destination",     help="Where to store the backup")
+    parser.add_argument("-c", "--compress",action="store_true", help="Create a .zip archive")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print what's happening")
+
+    args = parser.parse_args()
+    backup(args.source, args.destination, args.compress, args.verbose)
+
+if __name__ == "__main__":
+    main()
+```
+
+Usage:
+```bash
+python backup.py ./src ./backups -v
+python backup.py ./src ./backups --compress --verbose
+python backup.py --help
+```
+
+## Click — Better CLI Framework
+
+```bash
+pip install click
+```
+
+```python
+# cli.py
+import click
+import requests
+
+@click.group()
+def cli():
+    """My automation toolkit"""
+    pass
+
+@cli.command()
+@click.argument("url")
+@click.option("--output", "-o", default=None, help="Save response to file")
+@click.option("--header", "-H", multiple=True, help="Extra headers (key:value)")
+def fetch(url: str, output: str | None, header: tuple[str, ...]):
+    """Fetch a URL and display or save the response"""
+    headers = {}
+    for h in header:
+        key, _, value = h.partition(":")
+        headers[key.strip()] = value.strip()
+
+    with click.progressbar(length=1, label="Fetching") as bar:
+        response = requests.get(url, headers=headers, timeout=30)
+        bar.update(1)
+
+    click.echo(f"Status: {response.status_code}")
+
+    if output:
+        with open(output, "w") as f:
+            f.write(response.text)
+        click.secho(f"Saved to {output}", fg="green")
+    else:
+        click.echo(response.text[:500])
+
+if __name__ == "__main__":
+    cli()
+```
+
+Usage:
+```bash
+python cli.py fetch https://api.github.com/users/rupa
+python cli.py fetch https://api.github.com/users/rupa -o user.json
+python cli.py --help
+```
+
+<Callout type="success" title="Scripts that do real work">
+  File organisation, CSV processing, API calls, and CLI tools — these four patterns cover the vast majority of Python automation work. Combine them and you can automate almost anything.
+</Callout>
+
+## What's Next?
+
+**Python Automation #2** wraps up the series with scheduled tasks, environment management, packaging your scripts as installable tools, and the final production checklist.

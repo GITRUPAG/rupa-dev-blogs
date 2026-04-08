@@ -1,0 +1,244 @@
+---
+title: "Python OOP #3 — Context Managers, Iterators & Special Methods"
+description: "Write classes that work with 'with' statements, build custom iterators, and use special methods to make your objects behave like Python built-ins."
+date: "2025-04-15"
+tags: ["python", "oop", "context-managers", "iterators", "dunder"]
+category: "python"
+series: "python-basics-to-advanced"
+seriesOrder: 8
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## Context Managers — The `with` Statement
+
+You've used `with open(...) as f:` — that's a context manager. It guarantees cleanup even if an exception occurs. You can write your own:
+
+```python
+class ManagedFile:
+    def __init__(self, path: str, mode: str = "r"):
+        self.path = path
+        self.mode = mode
+        self.file = None
+
+    def __enter__(self):
+        """Called on entering the 'with' block — returns the resource"""
+        self.file = open(self.path, self.mode)
+        print(f"Opening {self.path}")
+        return self.file
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Called on leaving the 'with' block — always runs"""
+        print(f"Closing {self.path}")
+        if self.file:
+            self.file.close()
+        return False  # False = don't suppress exceptions
+
+with ManagedFile("data.txt", "w") as f:
+    f.write("Hello, context manager!")
+# "Closing data.txt" prints even if an error occurs inside the block
+```
+
+### Timer Context Manager
+
+```python
+import time
+from contextlib import contextmanager
+
+# Using @contextmanager — simpler than __enter__/__exit__
+@contextmanager
+def timer(label: str = ""):
+    start = time.perf_counter()
+    try:
+        yield          # the 'with' block runs here
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f"{label or 'Elapsed'}: {elapsed:.4f}s")
+
+with timer("List comprehension"):
+    result = [x**2 for x in range(1_000_000)]
+
+with timer("Sum"):
+    total = sum(range(10_000_000))
+```
+
+### Database Transaction Context Manager
+
+```python
+@contextmanager
+def transaction(db):
+    """Auto-commit or rollback a database transaction"""
+    try:
+        yield db
+        db.commit()
+        print("Transaction committed")
+    except Exception:
+        db.rollback()
+        print("Transaction rolled back")
+        raise
+
+# with transaction(db) as conn:
+#     conn.execute("INSERT INTO orders ...")
+#     conn.execute("UPDATE stock ...")
+#     # commits if both succeed, rolls back if either fails
+```
+
+## Custom Iterators
+
+An iterator is an object with `__iter__` and `__next__`. You can loop over it with `for`:
+
+```python
+class CountDown:
+    def __init__(self, start: int):
+        self.current = start
+
+    def __iter__(self):
+        return self     # the iterator IS this object
+
+    def __next__(self):
+        if self.current <= 0:
+            raise StopIteration    # signals the end
+        value = self.current
+        self.current -= 1
+        return value
+
+for n in CountDown(5):
+    print(n)   # 5 4 3 2 1
+
+# Or use the generator approach — much simpler
+def countdown(start: int):
+    while start > 0:
+        yield start
+        start -= 1
+
+list(countdown(5))  # [5, 4, 3, 2, 1]
+```
+
+### Infinite Iterator — Cycler
+
+```python
+class Cycler:
+    """Cycles through a sequence forever"""
+    def __init__(self, items):
+        self.items = list(items)
+        self.index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if not self.items:
+            raise StopIteration
+        value = self.items[self.index % len(self.items)]
+        self.index += 1
+        return value
+
+colors = Cycler(["red", "green", "blue"])
+for i, color in enumerate(colors):
+    print(color)
+    if i == 7: break
+# red green blue red green blue red green
+```
+
+## Container Special Methods
+
+Make your class behave like a built-in container:
+
+```python
+class WordBag:
+    def __init__(self):
+        self._words: list[str] = []
+
+    def add(self, word: str) -> None:
+        self._words.append(word.lower())
+
+    def __len__(self) -> int:
+        return len(self._words)
+
+    def __contains__(self, word: str) -> bool:
+        return word.lower() in self._words
+
+    def __iter__(self):
+        return iter(self._words)
+
+    def __getitem__(self, index):
+        return self._words[index]
+
+    def __repr__(self) -> str:
+        return f"WordBag({self._words!r})"
+
+bag = WordBag()
+bag.add("Python")
+bag.add("is")
+bag.add("great")
+
+print(len(bag))           # 3
+print("python" in bag)    # True
+print(bag[0])             # python
+for word in bag:
+    print(word)
+```
+
+## Comparison and Ordering
+
+```python
+from functools import total_ordering
+
+@total_ordering    # auto-generates <, <=, >, >= from __eq__ and __lt__
+class Version:
+    def __init__(self, major: int, minor: int, patch: int = 0):
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return (self.major, self.minor, self.patch) == \
+               (other.major, other.minor, other.patch)
+
+    def __lt__(self, other: "Version") -> bool:
+        return (self.major, self.minor, self.patch) < \
+               (other.major, other.minor, other.patch)
+
+    def __repr__(self) -> str:
+        return f"v{self.major}.{self.minor}.{self.patch}"
+
+versions = [Version(3, 12), Version(3, 9), Version(3, 11, 2)]
+print(sorted(versions))
+# [v3.9.0, v3.11.2, v3.12.0]
+
+print(Version(3, 12) > Version(3, 11, 2))  # True
+```
+
+## `__call__` — Making Objects Callable
+
+```python
+class Multiplier:
+    def __init__(self, factor: float):
+        self.factor = factor
+
+    def __call__(self, value: float) -> float:
+        return value * self.factor
+
+double = Multiplier(2)
+triple = Multiplier(3)
+
+print(double(5))   # 10.0
+print(triple(5))   # 15.0
+
+# Can be passed anywhere a function is expected
+numbers = [1, 2, 3, 4, 5]
+print(list(map(double, numbers)))  # [2.0, 4.0, 6.0, 8.0, 10.0]
+print(callable(double))            # True
+```
+
+<Callout type="success" title="End of Python OOP">
+  You now understand classes deeply: construction, properties, inheritance, ABCs, Protocols, context managers, iterators, and special methods. The next section covers Advanced Python — decorators, generators, and comprehensions used in real codebases.
+</Callout>
+
+## What's Next?
+
+**Python Advanced #1** covers decorators and generators — the two features that make Python code exceptionally clean and efficient.
