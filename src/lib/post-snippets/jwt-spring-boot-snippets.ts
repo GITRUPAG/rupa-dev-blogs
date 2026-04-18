@@ -1,3 +1,4 @@
+//src/lib/post-snippets/jwt-spring-boot-snippets.ts
 export const jwtSnippets = {
   jwtService: `@Service
 public class JwtService {
