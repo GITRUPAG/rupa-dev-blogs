@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, BookOpen, Code2, Layers, User } from 'lucide-react'
+import { Menu, X, BookOpen, Code2, Layers, User, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SearchBar } from '@/components/search/SearchBar'
 
@@ -12,6 +12,7 @@ const navLinks = [
   { href: '/learn', label: 'Learn', icon: Layers },
   { href: '/projects', label: 'Projects', icon: Code2 },
   { href: '/about', label: 'About', icon: User },
+  { href: '/contact', label: 'Contact', icon: Mail },
 ]
 
 export function Navbar() {
@@ -39,7 +40,7 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <span className="font-heading font-extrabold text-xl tracking-tight">
-              Rupa<span className="text-accent">.dev</span>
+              dev<span className="text-accent">Dairy</span>
             </span>
           </Link>
 

@@ -20,12 +20,12 @@ export function HeroSection({ stats }: { stats: Stats }) {
           </div>
 
           <h1 className="font-heading font-extrabold text-5xl sm:text-6xl leading-tight tracking-tight mb-6">
-            I Build.{' '}
-            <span className="text-accent">I Write.</span>{' '}
-            <span className="bg-gradient-to-r from-accent-2 to-accent-4 bg-clip-text text-transparent">
-              You Learn.
-            </span>
-          </h1>
+  Learn.{' '}
+  <span className="text-accent">Build.</span>{' '}
+  <span className="bg-gradient-to-r from-accent-2 to-accent-4 bg-clip-text text-transparent">
+    Grow as a Developer.
+  </span>
+</h1>
 
           <p className="text-ink-2 text-lg leading-relaxed max-w-lg mb-8">
             Real projects. Real code. Real stories. From React apps to Spring Boot APIs —

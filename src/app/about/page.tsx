@@ -50,7 +50,7 @@ export default function AboutPage() {
           <h1 className="font-heading font-extrabold text-4xl mb-2">Hey, I&apos;m Rupa</h1>
           <p className="text-accent font-mono text-sm mb-4">Full-Stack Developer · Builder · Blogger</p>
           <p className="text-ink-2 text-lg leading-relaxed max-w-xl">
-  I build real-world products that solve real problems — and document every step so you can learn faster, avoid mistakes, and actually ship your ideas.
+  I build real-world products and break them down into simple, practical lessons — so you can learn app development, full stack, databases, and AI by actually building, not just watching tutorials.
 </p>
           <div className="flex flex-wrap gap-3 mt-6">
             {[
@@ -92,7 +92,9 @@ export default function AboutPage() {
   </p>
 
   <p>
-    This blog exists for one reason: to share that journey. No fluff. No fake tutorials. Just real code, real problems, and real solutions.
+    DevDairy exists for one reason: to help you become a real developer.
+
+No fluff. No fake tutorials. Just real projects, real problems, and solutions you can actually use in your own apps.
   </p>
 </div>
       </section>
@@ -107,7 +109,7 @@ export default function AboutPage() {
       It combines period tracking, mental wellness, emergency alerts, and a safe community — all in one place.
     </p>
     <p>
-      My goal is simple: build technology that actually improves lives, not just adds another app to the store.
+     And through DevDairy, I’m sharing everything I learn — so you can build your own real-world apps with confidence.
     </p>
   </div>
 </section>

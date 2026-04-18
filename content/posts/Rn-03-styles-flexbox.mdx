@@ -1,0 +1,255 @@
+---
+title: "React Native #3 — StyleSheet & Flexbox"
+description: "How React Native styling works, Flexbox layouts for real screens, responsive sizing with Dimensions and useWindowDimensions, platform-specific styles, and dark mode."
+date: "2026-04-05"
+tags: ["react-native", "styling", "flexbox", "responsive"]
+category: "react-native"
+series: "react-native-expo"
+seriesOrder: 3
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## StyleSheet.create()
+
+React Native styles are JavaScript objects, not CSS. `StyleSheet.create()` validates them and optimises performance:
+
+```tsx
+import { StyleSheet } from 'react-native';
+
+// ✅ Use StyleSheet.create — validates at dev time, optimised at runtime
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f0f0f',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+});
+
+// ❌ Inline objects — valid but not optimised (new object on every render)
+<View style={{ flex: 1, padding: 20 }}>
+```
+
+### Combining Styles
+
+```tsx
+// Array syntax — later styles override earlier ones
+<View style={[styles.card, styles.featured, isSelected && styles.selected]} />
+
+// Conditional
+<Text style={[styles.text, error && styles.errorText]}>{message}</Text>
+```
+
+## Flexbox in React Native
+
+React Native uses Flexbox for all layout. Key difference from CSS: **the default `flexDirection` is `column`**, not `row`.
+
+<RNFlexboxEditor />
+
+### The Most Important Properties
+
+```tsx
+// flexDirection — main axis direction
+flexDirection: 'column'    // default — children stack vertically
+flexDirection: 'row'       // children stack horizontally
+
+// justifyContent — alignment along main axis
+justifyContent: 'flex-start'     // default
+justifyContent: 'flex-end'
+justifyContent: 'center'
+justifyContent: 'space-between'
+justifyContent: 'space-around'
+justifyContent: 'space-evenly'
+
+// alignItems — alignment along cross axis
+alignItems: 'stretch'     // default — fills cross axis
+alignItems: 'flex-start'
+alignItems: 'center'
+alignItems: 'flex-end'
+
+// flex — how much space a child takes
+flex: 1    // fill all available space
+flex: 2    // take twice as much space as flex: 1
+
+// gap — space between children (React Native 0.71+)
+gap: 12
+rowGap: 8
+columnGap: 16
+```
+
+### Real Layout Patterns
+
+```tsx
+// Top app bar
+<View style={{ flexDirection: 'row', alignItems: 'center',
+               justifyContent: 'space-between', paddingHorizontal: 16 }}>
+  <TouchableOpacity><BackIcon /></TouchableOpacity>
+  <Text style={{ fontSize: 18, fontWeight: '600', color: '#fff' }}>Profile</Text>
+  <TouchableOpacity><MoreIcon /></TouchableOpacity>
+</View>
+
+// Card with icon and text
+<View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+  <View style={{ width: 44, height: 44, borderRadius: 22,
+                 backgroundColor: '#6366f1', alignItems: 'center',
+                 justifyContent: 'center' }}>
+    <Icon name="star" size={20} color="#fff" />
+  </View>
+  <View style={{ flex: 1 }}>
+    <Text style={{ color: '#fff', fontWeight: '600' }}>Title</Text>
+    <Text style={{ color: '#888', fontSize: 13 }}>Subtitle text here</Text>
+  </View>
+</View>
+
+// Full screen with sticky bottom button
+<View style={{ flex: 1 }}>
+  <ScrollView style={{ flex: 1 }}>
+    {/* content */}
+  </ScrollView>
+  <View style={{ padding: 20 }}>
+    <TouchableOpacity style={{ backgroundColor: '#6366f1', padding: 16,
+                               borderRadius: 12, alignItems: 'center' }}>
+      <Text style={{ color: '#fff', fontWeight: '700' }}>Continue</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+```
+
+## Responsive Sizing
+
+React Native units are density-independent pixels (dp) — the same number looks the same physical size on all screens. But you still need to handle different screen sizes.
+
+```tsx
+import { Dimensions, useWindowDimensions } from 'react-native';
+
+// Static — read once (doesn't update on rotation)
+const { width, height } = Dimensions.get('window');
+
+// Hook — updates on rotation or split screen
+function ResponsiveCard() {
+  const { width, height, fontScale } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const cols     = isTablet ? 3 : 2;
+
+  return (
+    <View style={{
+      width:  (width - 48) / cols,   // dynamic column width
+      padding: width * 0.04,         // 4% of screen width
+    }}>
+      <Text style={{ fontSize: 16 * fontScale }}>Respects user font size</Text>
+    </View>
+  );
+}
+```
+
+## Platform-Specific Styles
+
+```tsx
+import { Platform, StyleSheet } from 'react-native';
+
+const styles = StyleSheet.create({
+  shadow: {
+    // iOS shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,   // Android shadow
+      },
+    }),
+  },
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,  // account for status bar
+  },
+});
+```
+
+## Dark Mode with useColorScheme
+
+```tsx
+import { useColorScheme } from 'react-native';
+
+const COLORS = {
+  light: {
+    bg:      '#ffffff',
+    text:    '#111111',
+    card:    '#f5f5f5',
+    border:  '#e5e5e5',
+    primary: '#6366f1',
+  },
+  dark: {
+    bg:      '#0f0f0f',
+    text:    '#ffffff',
+    card:    '#1a1a1a',
+    border:  '#2a2a2a',
+    primary: '#818cf8',
+  },
+};
+
+export function useTheme() {
+  const scheme = useColorScheme();  // 'light' | 'dark' | null
+  return COLORS[scheme ?? 'dark'];
+}
+
+// Usage in a component
+function Card({ title }: { title: string }) {
+  const theme = useTheme();
+
+  return (
+    <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16,
+                   borderWidth: 1, borderColor: theme.border }}>
+      <Text style={{ color: theme.text, fontWeight: '600' }}>{title}</Text>
+    </View>
+  );
+}
+```
+
+## Safe Area — Don't Render Behind Notches
+
+```bash
+npx expo install react-native-safe-area-context
+```
+
+```tsx
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Wrap your root layout
+<SafeAreaProvider>
+  <App />
+</SafeAreaProvider>
+
+// Use in screens
+<SafeAreaView style={{ flex: 1, backgroundColor: '#0f0f0f' }}>
+  <YourScreen />
+</SafeAreaView>
+
+// Or use the hook for fine control
+function Header() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ paddingTop: insets.top, backgroundColor: '#1a1a1a' }}>
+      <Text>Header</Text>
+    </View>
+  );
+}
+```
+
+<Callout type="warning" title="Always use SafeAreaView or insets">
+  Without safe area handling, your content renders behind the notch, status bar, and home indicator on modern phones. Every screen needs either `SafeAreaView` or `useSafeAreaInsets`.
+</Callout>
+
+## What's Next?
+
+**React Native #4** builds a reusable design system — custom components, a shared theme, typography scale, and the patterns that keep your UI consistent as the app grows.

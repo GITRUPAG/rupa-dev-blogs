@@ -1,0 +1,242 @@
+---
+title: "React Native #2 — Core Components"
+description: "Every component you'll use in 90% of your screens: View, Text, Image, ScrollView, FlatList, TextInput, and Pressable. With real examples and gotchas."
+date: "2026-04-04"
+tags: ["react-native", "expo", "components", "flatlist"]
+category: "react-native"
+series: "react-native-expo"
+seriesOrder: 2
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## The Building Blocks
+
+<RNCoreComponentsEditor />
+
+## View — The div of React Native
+
+`View` is a layout container. It supports flexbox, styling, and touch handling. Most screens are just nested Views:
+
+```tsx
+<View style={{ flex: 1, padding: 20 }}>
+  <View style={{ backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16 }}>
+    <Text>Card content</Text>
+  </View>
+</View>
+```
+
+## Text — The Only Way to Render Strings
+
+```tsx
+<Text
+  style={{ fontSize: 16, color: '#fff' }}
+  numberOfLines={2}          // truncate after 2 lines
+  ellipsizeMode="tail"       // "...", "head", "middle", "clip"
+  selectable={true}          // allow long-press to copy
+  onPress={() => alert('tapped')}
+>
+  This is text content
+</Text>
+
+{/* Nested Text for mixed styles */}
+<Text style={{ color: '#fff', fontSize: 16 }}>
+  Hello{' '}
+  <Text style={{ fontWeight: 'bold', color: '#6366f1' }}>React Native</Text>
+  {' '}world!
+</Text>
+```
+
+<Callout type="error" title="Strings must be inside Text">
+  ```tsx
+  // ❌ Crashes — raw string in View
+  <View>{isLoggedIn && "Welcome back!"}</View>
+
+  // ✅ Wrap in Text
+  <View>{isLoggedIn && <Text>Welcome back!</Text>}</View>
+  ```
+</Callout>
+
+## Image
+
+```tsx
+import { Image } from 'react-native';
+
+// Remote image — must specify width and height
+<Image
+  source={{ uri: 'https://picsum.photos/300/200' }}
+  style={{ width: 300, height: 200, borderRadius: 12 }}
+  resizeMode="cover"   // cover | contain | stretch | center
+/>
+
+// Local image (in assets folder)
+<Image
+  source={require('../assets/images/logo.png')}
+  style={{ width: 80, height: 80 }}
+/>
+```
+
+For better performance, use `expo-image`:
+```bash
+npx expo install expo-image
+```
+
+```tsx
+import { Image } from 'expo-image';
+
+<Image
+  source="https://picsum.photos/300/200"
+  style={{ width: 300, height: 200, borderRadius: 12 }}
+  contentFit="cover"
+  placeholder={blurhash}   // shows a blur while loading
+  transition={200}
+/>
+```
+
+## ScrollView vs FlatList
+
+**ScrollView** — renders all children at once. Use for short, static content:
+```tsx
+<ScrollView
+  contentContainerStyle={{ padding: 20, gap: 12 }}
+  showsVerticalScrollIndicator={false}
+  keyboardShouldPersistTaps="handled"   // taps work when keyboard is open
+>
+  <Card />
+  <Card />
+  <Card />
+</ScrollView>
+```
+
+**FlatList** — virtualised list. Only renders visible items. **Use this for any dynamic list:**
+```tsx
+<FlatList
+  data={products}
+  keyExtractor={item => String(item.id)}
+  renderItem={({ item, index }) => <ProductCard product={item} />}
+  contentContainerStyle={{ padding: 16, gap: 12 }}
+
+  // Performance
+  removeClippedSubviews={true}
+  initialNumToRender={10}
+  maxToRenderPerBatch={10}
+
+  // Empty state
+  ListEmptyComponent={<Text style={{ color: '#888' }}>No items found</Text>}
+
+  // Header and footer
+  ListHeaderComponent={<Text style={{ color: '#fff' }}>All Products</Text>}
+  ListFooterComponent={isLoadingMore ? <ActivityIndicator /> : null}
+
+  // Pull to refresh
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      tintColor="#6366f1"
+    />
+  }
+
+  // Pagination
+  onEndReached={loadMoreItems}
+  onEndReachedThreshold={0.3}   // trigger when 30% from bottom
+/>
+```
+
+<Callout type="warning" title="Never put FlatList inside ScrollView">
+  Nesting a `FlatList` inside a `ScrollView` breaks virtualisation — all items render at once and you get scroll conflicts. Use `FlatList`'s `ListHeaderComponent` and `ListFooterComponent` instead.
+</Callout>
+
+## SectionList — Grouped Lists
+
+```tsx
+import { SectionList } from 'react-native';
+
+const sections = [
+  { title: 'Electronics', data: ['Laptop', 'Phone', 'Tablet'] },
+  { title: 'Clothing',    data: ['T-Shirt', 'Jeans'] },
+];
+
+<SectionList
+  sections={sections}
+  keyExtractor={(item, index) => item + index}
+  renderItem={({ item }) => (
+    <Text style={{ color: '#fff', padding: 12 }}>{item}</Text>
+  )}
+  renderSectionHeader={({ section }) => (
+    <Text style={{ color: '#6366f1', fontWeight: '700', padding: 12,
+                   backgroundColor: '#0f0f0f' }}>
+      {section.title}
+    </Text>
+  )}
+/>
+```
+
+## TextInput
+
+```tsx
+import { TextInput, StyleSheet } from 'react-native';
+
+<TextInput
+  value={value}
+  onChangeText={setValue}
+  placeholder="Search..."
+  placeholderTextColor="#666"
+  style={styles.input}
+
+  // Keyboard type
+  keyboardType="email-address"  // "numeric" | "phone-pad" | "decimal-pad"
+  returnKeyType="search"        // "done" | "next" | "go" | "send"
+  autoCapitalize="none"         // "words" | "sentences" | "characters"
+  autoCorrect={false}
+  secureTextEntry={true}        // for passwords
+
+  // Refs for focus management
+  ref={inputRef}
+  onSubmitEditing={() => nextInputRef.current?.focus()}
+  blurOnSubmit={false}          // don't blur when pressing return (for multi-input forms)
+/>
+```
+
+## Pressable — The Modern Touch Handler
+
+Prefer `Pressable` over `TouchableOpacity` for new code:
+```tsx
+<Pressable
+  onPress={handlePress}
+  onLongPress={handleLongPress}
+  style={({ pressed }) => [
+    styles.button,
+    pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] }
+  ]}
+  hitSlop={8}   // extend touch area by 8dp on all sides
+>
+  {({ pressed }) => (
+    <Text style={{ color: pressed ? '#aaa' : '#fff' }}>Press me</Text>
+  )}
+</Pressable>
+```
+
+## KeyboardAvoidingView — Forms That Don't Get Covered
+
+```tsx
+import { KeyboardAvoidingView, Platform } from 'react-native';
+
+<KeyboardAvoidingView
+  style={{ flex: 1 }}
+  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  keyboardVerticalOffset={64}   // account for header height
+>
+  <ScrollView>
+    <TextInput placeholder="Email" />
+    <TextInput placeholder="Password" secureTextEntry />
+    <Button title="Login" />
+  </ScrollView>
+</KeyboardAvoidingView>
+```
+
+## What's Next?
+
+**React Native #3** covers StyleSheet and Flexbox in depth — how React Native's layout system works, responsive sizing with Dimensions, and theming with a design system.

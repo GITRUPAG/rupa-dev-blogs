@@ -1,0 +1,194 @@
+---
+title: "React Native #1 — Introduction & Expo Setup"
+description: "What React Native actually is, how it differs from React web, and getting a real app running on your phone in under 10 minutes with Expo."
+date: "2026-04-01"
+tags: ["react-native", "expo", "mobile", "beginner"]
+category: "react-native"
+series: "react-native-expo"
+seriesOrder: 1
+featured: false
+author:
+  name: "Rupa"
+  github: "https://github.com/rupa"
+---
+
+## What Is React Native?
+
+React Native lets you build iOS and Android apps using JavaScript and React. But it's not a web app wrapped in a browser — your React components compile to **real native views**:
+
+```
+<View>   → UIView (iOS)    / android.view.View (Android)
+<Text>   → UILabel (iOS)   / android.widget.TextView (Android)
+<Image>  → UIImageView     / android.widget.ImageView
+```
+
+You write one codebase. React Native renders platform-native UI on both iOS and Android. The result looks and performs like a native app because it *is* native under the hood.
+
+## React Native vs React Web
+
+The concepts are the same — components, props, state, hooks. The platform layer is different:
+
+| React (Web) | React Native |
+|-------------|-------------|
+| `<div>` | `<View>` |
+| `<p>`, `<span>` | `<Text>` |
+| `<img>` | `<Image>` |
+| `<input>` | `<TextInput>` |
+| `<button>` | `<TouchableOpacity>` / `<Pressable>` |
+| CSS | `StyleSheet.create({})` |
+| `onClick` | `onPress` |
+| Runs in browser | Runs in native app shell |
+
+<Callout type="info" title="All text must be inside <Text>">
+  In React Native, you cannot render a string directly inside a `<View>`. It must always be wrapped in `<Text>`. This is one of the most common beginner errors.
+</Callout>
+
+## Why Expo?
+
+Expo is the standard way to start React Native development. It handles:
+
+- Build tooling (no Xcode/Android Studio required to start)
+- Over-the-air updates
+- A huge library of pre-built native modules (camera, location, notifications, etc.)
+- Expo Go — run your app on your real phone instantly, no cable needed
+
+You can always "eject" to a bare React Native project later if you need something Expo doesn't support.
+
+## Setting Up
+
+### Prerequisites
+
+```bash
+node --version   # need v18+
+```
+
+Install the Expo CLI:
+```bash
+npm install -g expo-cli
+```
+
+### Create Your First App
+
+```bash
+npx create-expo-app@latest MyApp --template blank-typescript
+cd MyApp
+```
+
+<FileTree>
+MyApp/
+├── app/                  ← screens (Expo Router)
+│   └── index.tsx
+├── components/           ← reusable components
+├── assets/               ← images, fonts, icons
+├── constants/
+├── hooks/
+├── app.json              ← Expo config (app name, icons, splash)
+├── tsconfig.json
+└── package.json
+</FileTree>
+
+### Run It
+
+```bash
+npx expo start
+```
+
+This opens **Expo Dev Tools** in your browser and prints a QR code.
+
+<Step number={1} title="Install Expo Go on your phone">
+  Download **Expo Go** from the App Store (iOS) or Google Play (Android). It's a container app that runs your JavaScript bundle.
+</Step>
+
+<Step number={2} title="Scan the QR code">
+  Open your phone camera (iOS) or the Expo Go app (Android) and scan the QR code from your terminal. Your app loads on your real phone in seconds.
+</Step>
+
+<Step number={3} title="Make a change">
+  Edit `app/index.tsx` and save. The app updates instantly on your phone — this is **Fast Refresh**.
+</Step>
+
+## Your First Screen
+
+<RNHelloWorldEditor />
+
+Replace `app/index.tsx` with this and watch it update live on your phone.
+
+## Running on a Simulator
+
+If you want to run on a simulator instead of a real device:
+
+**iOS Simulator** (macOS only):
+```bash
+# Install Xcode from the Mac App Store first
+npx expo start --ios
+```
+
+**Android Emulator**:
+```bash
+# Install Android Studio first, create a virtual device
+npx expo start --android
+```
+
+<Callout type="warning" title="iOS simulator requires macOS">
+  You need a Mac to run the iOS simulator. On Windows/Linux, use an Android emulator or test on a real device via Expo Go.
+</Callout>
+
+## The app.json — Configure Your App
+
+```json
+{
+  "expo": {
+    "name": "MyApp",
+    "slug": "myapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f0f0f"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourname.myapp"
+    },
+    "android": {
+      "package": "com.yourname.myapp",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0f0f0f"
+      }
+    }
+  }
+}
+```
+
+## Key Differences to Keep in Mind
+
+```typescript
+// ✅ React Native
+import { View, Text, TouchableOpacity } from 'react-native';
+
+// ❌ These don't exist in React Native
+// import { div, p, button } from '...'
+
+// ✅ Styles are objects, not CSS strings
+const styles = StyleSheet.create({
+  box: { width: 100, height: 100, backgroundColor: 'blue' }
+});
+
+// ❌ No CSS strings
+// style="width: 100px; height: 100px;"
+
+// ✅ All sizes are density-independent pixels (dp) — no 'px' unit
+fontSize: 16    // ✅
+fontSize: '16px' // ❌
+```
+
+<Callout type="success" title="You're set up">
+  Expo running, app on your phone, Fast Refresh working. In the next post we'll cover all the core components you'll use in every screen.
+</Callout>
+
+## What's Next?
+
+**React Native #2** covers core components in depth — `View`, `Text`, `Image`, `ScrollView`, `FlatList`, `TextInput`, `Pressable` — and when to use each one.
